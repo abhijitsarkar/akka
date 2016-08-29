@@ -1,0 +1,14 @@
+target/
+/.cache
+/.settings
+/.classpath
+/.project
+/.worksheet
+.idea/
+.gradle/
+gradlew*
+*.iml
+build/
+gradle/
+*.log
+/.sbtserver*
