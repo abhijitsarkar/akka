@@ -22,7 +22,7 @@ object UserApp extends App with UserReadResource with UserWriteResource {
   override def config = ConfigFactory.load()
   override val logger = Logging(system, getClass)
   
-  private val collection = newCollection("users")
+  private val collection = newCollection("users", "localhost", 12345)
   val userRepository = MongoDBUserRepository(collection)
 
   override val businessDelegateProps: Props = UserBusinessDelegate.props(userRepository, executor)

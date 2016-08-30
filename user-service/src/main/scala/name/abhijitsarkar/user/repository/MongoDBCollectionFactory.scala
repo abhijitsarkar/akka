@@ -8,8 +8,8 @@ import org.slf4j.LoggerFactory
 object MongoDBCollectionFactory {
   private val logger = LoggerFactory.getLogger(getClass)
   
-  def newCollection(name: String) = {
-    val collection = MongoClient()("akka")(name)
+  def newCollection(name: String, hostname: String, port: Integer) = {
+    val collection = MongoClient(hostname, port)("akka")(name)
 
     collection.createIndex(MongoDBObject(PHONE_NUM.toString -> 1), MongoDBObject("unique" -> true))
     collection.createIndex(MongoDBObject(EMAIL.toString -> 1), MongoDBObject("unique" -> true, "sparse" -> true))

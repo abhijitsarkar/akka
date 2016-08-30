@@ -1,10 +1,5 @@
-mongod --dbpath /var/lib/mongodb
-
-Change MySql directory permission
-
-CREATE SCHEMA `akka` DEFAULT CHARACTER SET utf8 ;
-
-CREATE TABLE `akka`.`users` (
+DROP TABLE IF EXISTS `USERS`;
+CREATE TABLE `USERS` (
   `user_id` VARCHAR(16) NOT NULL,
   `first_name` VARCHAR(50) NOT NULL,
   `last_name` VARCHAR(50) NOT NULL,

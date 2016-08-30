@@ -24,7 +24,7 @@ import akka.http.scaladsl.model.StatusCode
 
 class UserBusinessDelegateSpec extends TestKit(ActorSystem("user-service")) with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
   implicit val executor: ExecutionContextExecutor = system.dispatcher
-  val duration = 1 seconds
+  val duration = 1.seconds
 
   val userRepository = new MockUserRepository
   //  val mockUsers = Seq(userRepository.mockUser)

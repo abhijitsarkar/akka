@@ -29,6 +29,7 @@ trait UserRepositorySpec extends fixture.FlatSpec with Matchers with ScalaFuture
       withFixture(test.toNoArgTest(testUser)) // "loan" the fixture to the test
     } finally { // clean up the fixture
       println("After test")
+      Thread.sleep(2000)
       dumpAllUsers
 
       deleteAllUsers

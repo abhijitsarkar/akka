@@ -1,19 +1,20 @@
 package name.abhijitsarkar.user.repository
 
-import scala.concurrent.{ ExecutionContextExecutor, Future }
-import scala.collection._
 import name.abhijitsarkar.user.domain.User
-import slick.driver.MySQLDriver.api._
-import slick.jdbc.GetResult
-import scala.util.Success
-import scala.util.Failure
-import slick.dbio.DBIOAction
-import slick.dbio.Effect.Write
-import slick.dbio.NoStream
 import org.slf4j.LoggerFactory
+import slick.jdbc.GetResult
 
-class MySQLPlainUserRepository(private val db: Database)(private implicit val executor: ExecutionContextExecutor) extends UserRepository {
+import scala.collection._
+import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.{Failure, Success}
+
+class MySQLPlainUserRepository(private val dBContext: DBContext)(private implicit val executor: ExecutionContextExecutor) extends UserRepository {
   val logger = LoggerFactory.getLogger(getClass)
+
+  val dbConfig = dBContext.dbConfig
+  val db = dBContext.db
+
+  import dbConfig.driver.api._
 
   val table = "users"
 
@@ -32,7 +33,9 @@ class MySQLPlainUserRepository(private val db: Database)(private implicit val ex
       WHERE #$whereClause
       """.as[User]
 
-    db.run(query).map { _.toList }
+    db.run(query).map {
+      _.toList
+    }
   }
 
   def findByLastName(lastName: String): Future[immutable.Seq[User]] = {
@@ -50,8 +53,10 @@ class MySQLPlainUserRepository(private val db: Database)(private implicit val ex
   def findById(userId: String): Future[Option[User]] = {
     val query = s"user_id = '$userId'"
 
-    run(query).map { // Future[Seq[User]]
-      _ match { // Seq[User]
+    run(query).map {
+      // Future[Seq[User]]
+      _ match {
+        // Seq[User]
         case immutable.Seq(user) =>
           logger.debug("Found user with user id: {}.", userId); Some(user)
         case _ => logger.warn("No user found with user id: {}.", userId); None
@@ -60,7 +65,8 @@ class MySQLPlainUserRepository(private val db: Database)(private implicit val ex
   }
 
   def updateUser(user: User) = {
-    val action = sqlu"""UPDATE #$table SET
+    val action =
+      sqlu"""UPDATE #$table SET
       first_name = ${user.firstName},
       last_name = ${user.lastName},
       phone_num = ${user.phoneNum},
@@ -85,7 +91,8 @@ class MySQLPlainUserRepository(private val db: Database)(private implicit val ex
   }
 
   def createUser(user: User) = {
-    val action = sqlu"""INSERT INTO #$table VALUES(
+    val action =
+      sqlu"""INSERT INTO #$table VALUES(
       ${user.userId}, ${user.firstName}, ${user.lastName}, ${user.phoneNum}, ${user.email}
     )"""
 
@@ -95,7 +102,8 @@ class MySQLPlainUserRepository(private val db: Database)(private implicit val ex
   }
 
   def deleteUser(userId: String) = {
-    val action = sqlu"""DELETE FROM #$table
+    val action =
+      sqlu"""DELETE FROM #$table
       WHERE user_id = ${userId}
     """
     logger.debug(s"Delete statement: ${action.statements.head} for user id: ${userId}.")
@@ -105,5 +113,6 @@ class MySQLPlainUserRepository(private val db: Database)(private implicit val ex
 }
 
 object MySQLPlainUserRepository {
-  def apply(db: Database)(implicit executor: ExecutionContextExecutor) = new MySQLPlainUserRepository(db)(executor)
+  def apply(dBContext: DBContext)(implicit executor: ExecutionContextExecutor) =
+    new MySQLPlainUserRepository(dBContext)(executor)
 }
