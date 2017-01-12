@@ -1,14 +1,31 @@
-target/
-/.cache
-/.settings
-/.classpath
-/.project
-/.worksheet
-.idea/
-.gradle/
-gradlew*
-*.iml
-build/
-gradle/
+# http://git-scm.com/docs/gitignore
+
+ # Mac
+.DS_Store
+
+# Logs
 *.log
-/.sbtserver*
+
+# Eclipse 
+.classpath
+.project
+.settings/
+bin/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Maven
+target/
+
+# Gradle
+build/
+.gradle/
+userHome/
+
+# Play/SBT
+/project/project
+/project/target
+/project/.sbtserver*
+/libexec
