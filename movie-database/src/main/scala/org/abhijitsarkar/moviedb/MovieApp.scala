@@ -1,5 +1,7 @@
 package org.abhijitsarkar.moviedb
 
+import java.net.URL
+
 import akka.stream._
 import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
 
@@ -9,14 +11,14 @@ import scala.concurrent.duration._
 /**
   * @author Abhijit Sarkar
   */
-object MovieApp extends MovieService with MovieRepositoryHelper {
-  val g = (file: String) => RunnableGraph.fromGraph(GraphDSL.create(Sink.ignore) {
+object MovieApp extends MovieService with MovieRepositoryHelper with ExcelMovieParser {
+  val g = (url: String) => RunnableGraph.fromGraph(GraphDSL.create(Sink.ignore) {
     implicit builder =>
       sink =>
         import GraphDSL.Implicits._
 
         // Source
-        val A: Outlet[(String, String)] = builder.add(Source.fromIterator(() => parseMovies(file).iterator)).out
+        val A: Outlet[(String, String)] = builder.add(Source.fromIterator(() => parseMovies(new URL(url)).iterator)).out
         // Flow
         val B: FlowShape[(String, String), Either[String, Movie]] = builder.add(findMovie)
         // Flow
@@ -28,7 +30,7 @@ object MovieApp extends MovieService with MovieRepositoryHelper {
   })
 
   def main(args: Array[String]): Unit = {
-    require(args.size >= 1, "Path to file is required.")
+    require(args.size >= 1, "File URL is required.")
 
     g(args(0)).run
       .onComplete(_ => {
