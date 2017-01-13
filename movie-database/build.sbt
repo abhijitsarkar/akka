@@ -1,4 +1,4 @@
-name := "movie-manager"
+name := "movie-database"
 organization := "org.abhijitsarkar"
 version := "1.0.0-SNAPSHOT"
 scalaVersion := "2.12.1"
@@ -14,7 +14,6 @@ scalacOptions := Seq(
   "-Yno-adapted-args",
   "-Ywarn-unused-import",
   "-Ywarn-dead-code",
-  "-Ywarn-value-discard",
   "-Ywarn-infer-any",
   "-Ywarn-numeric-widen",
   "-Xfatal-warnings"
@@ -25,8 +24,9 @@ libraryDependencies ++= {
   val akkaHttpVersion = "10.0.1"
   val scalaTestVersion = "3.0.1"
   val reactiveMongoVersion = "0.12.1"
+  val poiVersion = "3.15"
   val logbackVersion = "1.1.7"
-  val slf4jVersion = "1.7.21"
+  val akkaSlf4jVersion = "2.4.16"
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaVersion,
     "com.typesafe.akka" %% "akka-stream" % akkaVersion,
@@ -34,8 +34,9 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.reactivemongo" %% "reactivemongo" % reactiveMongoVersion,
+    "org.apache.poi" % "poi-ooxml" % poiVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
-    "org.slf4j" % "slf4j-api" % slf4jVersion,
+    "com.typesafe.akka" %% "akka-slf4j" % akkaSlf4jVersion,
     "ch.qos.logback" % "logback-core" % logbackVersion % Runtime,
     "ch.qos.logback" % "logback-classic" % logbackVersion % Runtime
   )

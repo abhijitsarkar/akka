@@ -1,7 +1,5 @@
 package org.abhijitsarkar.moviedb
 
-import java.io.IOException
-
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
@@ -17,6 +15,7 @@ import org.abhijitsarkar.moviedb.MovieProtocol._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 /**
   * @author Abhijit Sarkar
@@ -29,10 +28,16 @@ trait OMDbClient {
 
   implicit val materializer: Materializer
 
-  implicit val movieUnmarshaller = Unmarshaller[ResponseEntity, Movie](ec => r => {
+  implicit val movieUnmarshaller = Unmarshaller[ResponseEntity, Either[String, Movie]](ec => r => {
     val str = r.dataBytes.runFold("")((u, b) => s"$u${b.utf8String}")
 
-    str.map(_.parseJson.convertTo[Movie])
+    str.map { s =>
+      logger.info(s"OMDb response: $str")
+      Try(s.parseJson.convertTo[Movie]) match {
+        case Success(m) => Right(m)
+        case Failure(t) => logger.error(t, t.getMessage); Left(t.getMessage)
+      }
+    }
   })
 
   def config: Config
@@ -44,15 +49,17 @@ trait OMDbClient {
 
   def omdbRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(omdbConnectionFlow).runWith(Sink.head)
 
-  def movieInfo(title: String, year: Int): Future[Either[String, Movie]] = {
+  def movieInfo(title: String, year: String): Future[Either[String, Movie]] = {
     val uri = Uri("/").withQuery(Query(("t" -> title), ("y" -> year.toString)))
+    logger.info(s"OMDb request: $uri")
+
     omdbRequest(RequestBuilding.Get(uri)).flatMap { response =>
       response.status match {
-        case OK => Unmarshal(response.entity).to[Movie].map(Right(_))
+        case OK => Unmarshal(response.entity).to[Either[String, Movie]]
         case _ => Unmarshal(response.entity).to[String].flatMap { entity =>
           val error = s"OMDb request failed with status code ${response.status} and entity $entity."
           logger.error(error)
-          Future.failed(new IOException(error))
+          Future.failed(new RuntimeException(error))
         }
       }
     }

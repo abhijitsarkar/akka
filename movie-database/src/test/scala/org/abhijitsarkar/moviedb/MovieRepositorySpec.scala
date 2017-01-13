@@ -27,13 +27,13 @@ class MovieRepositorySpec extends FlatSpec
   }
 
   "MovieRepository" should "create a movie" in {
-    val id = createMovie(Movie("test", "", "", "1"))
+    val id = createMovie(Movie("test", -1, -1.0, "1"))
 
     Await.result(id, 1.second) shouldBe Some("1")
   }
 
   "MovieRepository" should "find a movie" in {
-    val created = Await.result(createMovie(Movie("test", "", "", "1")), 1.second).getOrElse("")
+    val created = Await.result(createMovie(Movie("test", -1, -1.0, "1")), 1.second).getOrElse("")
 
     val found = findById(created)
 
@@ -41,7 +41,7 @@ class MovieRepositorySpec extends FlatSpec
   }
 
   "MovieRepository" should "delete a movie" in {
-    val created = Await.result(createMovie(Movie("test", "", "", "1")), 1.second).getOrElse("")
+    val created = Await.result(createMovie(Movie("test", -1, -1.0, "1")), 1.second).getOrElse("")
 
     val found = findById(created)
 

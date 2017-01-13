@@ -41,7 +41,7 @@ class OMDbClientSpec extends FlatSpec
   override val materializer = ActorMaterializer()
 
   "Client" should "return a single result in" in {
-    val movie = Await.result(movieInfo("rogue one", 2016), 1.second).right.value
+    val movie = Await.result(movieInfo("rogue one", "2016"), 1.second).right.value
 
     movie.imdbId should be("tt3748528")
   }
