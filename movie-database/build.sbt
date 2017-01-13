@@ -41,3 +41,6 @@ libraryDependencies ++= {
     "ch.qos.logback" % "logback-classic" % logbackVersion % Runtime
   )
 }
+
+
+fork in run := true

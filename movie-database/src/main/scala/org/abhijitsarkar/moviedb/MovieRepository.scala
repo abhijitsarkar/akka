@@ -1,16 +1,15 @@
 package org.abhijitsarkar.moviedb
 
 import reactivemongo.api.collections.bson.BSONCollection
+import reactivemongo.api.{FailoverStrategy, MongoConnectionOptions, MongoDriver}
 import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, Macros, document}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
   * @author Abhijit Sarkar
   */
 trait MovieRepository {
-  implicit val executor: ExecutionContext
-
   def movieCollection: Future[BSONCollection]
 
   implicit def personWriter: BSONDocumentWriter[Movie] = Macros.writer[Movie]
@@ -49,5 +48,22 @@ trait MovieRepository {
       case x@Some(_) => x.map(_.imdbId)
       case _ => None
     }
+  }
+}
+
+trait MovieRepositoryHelper {
+  val opts = MongoConnectionOptions(
+    failoverStrategy = FailoverStrategy(retries = 2)
+  )
+
+  import scala.collection.JavaConverters._
+
+  val driver = MongoDriver()
+
+  def movieCollection: Future[BSONCollection] = {
+    val mongodbConfig = config.getConfig("mongodb")
+    driver.connection(mongodbConfig.getStringList("servers").asScala, opts)
+      .database(mongodbConfig.getString("database"))
+      .map(_.collection(mongodbConfig.getString("collection")))
   }
 }

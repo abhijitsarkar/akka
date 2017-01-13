@@ -27,5 +27,5 @@ userHome/
 # Play/SBT
 /project/project
 /project/target
-/project/.sbtserver*
-/libexec
+/project/.sbtserver
+/project/.sbtserver.lock

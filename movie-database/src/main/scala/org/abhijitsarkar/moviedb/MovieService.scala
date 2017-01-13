@@ -1,6 +1,5 @@
 package org.abhijitsarkar.moviedb
 
-import akka.event.LoggingAdapter
 import akka.stream.scaladsl.Flow
 import org.apache.poi.ss.usermodel.{DataFormatter, Row}
 import org.apache.poi.xssf.usermodel.{XSSFFormulaEvaluator, XSSFWorkbook}
@@ -11,8 +10,6 @@ import scala.concurrent.Future
   * @author Abhijit Sarkar
   */
 trait MovieService extends MovieRepository with OMDbClient {
-  val logger: LoggingAdapter
-
   def findMovie = Flow[(String, String)]
     .mapAsyncUnordered(10)(x => (movieInfo _).tupled(x))
 

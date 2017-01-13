@@ -1,30 +1,17 @@
 package org.abhijitsarkar.moviedb
 
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.api.{FailoverStrategy, MongoConnectionOptions, MongoDriver}
+import org.scalatest.{FlatSpec, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
 
 /**
   * @author Abhijit Sarkar
   */
 class MovieRepositorySpec extends FlatSpec
   with Matchers
-  with BeforeAndAfterAll
-  with MovieRepository {
-  implicit val executor = ExecutionContext.global
-
-  val opts = MongoConnectionOptions(
-    failoverStrategy = FailoverStrategy(retries = 2)
-  )
-
-  override val movieCollection: Future[BSONCollection] = {
-    MongoDriver().connection(List("localhost"), opts)
-      .database("local")
-      .map(_.collection("movie"))
-  }
+  with MovieRepository
+  with MovieRepositoryHelper {
 
   "MovieRepository" should "create a movie" in {
     val id = createMovie(Movie("test", -1, -1.0, "1"))
@@ -49,7 +36,7 @@ class MovieRepositorySpec extends FlatSpec
 
     val deleted = Await.result(deleteMovie(created), 1.second).getOrElse("")
 
-    val notFound = findById(created)
+    val notFound = findById(deleted)
 
     Await.result(notFound, 1.second) shouldBe None
   }
