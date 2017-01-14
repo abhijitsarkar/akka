@@ -2,7 +2,7 @@
 
 1. Connect to Mongo shell.
    ```
-   asarkar:~$ docker exec -it f3724ccc42e9 mongo
+   asarkar:~$ docker exec -it mongo mongo
    ```
 2. List all databases.
    ```

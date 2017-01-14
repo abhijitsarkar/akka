@@ -18,8 +18,8 @@ case class Movie(
                   runtime: String,
                   directors: Seq[String],
                   actors: Seq[String],
-                  language: String,
-                  country: String,
+                  languages: Seq[String],
+                  countries: Seq[String],
                   `type`: String,
                   plot: String,
                   imdbVotes: Long,
@@ -29,7 +29,7 @@ case class Movie(
 
 object MovieProtocol extends DefaultJsonProtocol {
 
-  implicit object ColorJsonFormat extends RootJsonFormat[Movie] {
+  implicit object MovieJsonFormat extends RootJsonFormat[Movie] {
     def write(m: Movie) = JsObject(
       "title" -> JsString(m.title),
       "year" -> JsString(m.year.toString),
@@ -38,8 +38,8 @@ object MovieProtocol extends DefaultJsonProtocol {
       "runtime" -> JsString(m.runtime),
       "directors" -> JsArray(m.directors.map(JsString(_)).toVector),
       "actors" -> JsArray(m.actors.map(JsString(_)).toVector),
-      "language" -> JsString(m.language),
-      "country" -> JsString(m.country),
+      "languages" -> JsArray(m.languages.map(JsString(_)).toVector),
+      "countries" -> JsArray(m.countries.map(JsString(_)).toVector),
       "type" -> JsString(m.`type`),
       "plot" -> JsString(m.plot),
       "imdbVotes" -> JsString(m.imdbVotes.toString),
@@ -58,8 +58,8 @@ object MovieProtocol extends DefaultJsonProtocol {
         JsString(runtime),
         JsString(directors),
         JsString(actors),
-        JsString(language),
-        JsString(country),
+        JsString(languages),
+        JsString(countries),
         JsString(typ),
         JsString(plot),
         JsString(imdbVotes),
@@ -73,15 +73,15 @@ object MovieProtocol extends DefaultJsonProtocol {
           runtime,
           directors.split(","),
           actors.split(","),
-          language,
-          country,
+          languages.split(","),
+          countries.split(","),
           typ,
           plot,
           Try(getNumberInstance(US).parse(imdbVotes).longValue).getOrElse(-1),
           Try(imdbRating.toDouble).getOrElse(-1.0),
           imdbId
         )
-        case _ => throw new DeserializationException("Failed to unmarshal Movie.")
+        case _ => throw new DeserializationException("Failed to unmarshal movie")
       }
     }
   }

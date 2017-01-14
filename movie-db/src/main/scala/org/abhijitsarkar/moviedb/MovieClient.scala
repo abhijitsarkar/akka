@@ -7,8 +7,10 @@ import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import cats.data.EitherT
 import org.abhijitsarkar.moviedb.MovieProtocol._
 import spray.json._
+import cats.instances.future._
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -27,10 +29,9 @@ class OMDbClient extends MovieClient {
     val str = r.dataBytes.runFold("")((u, b) => s"$u${b.utf8String}")
 
     str.map { s =>
-      logger.info(s"OMDb response: $str")
       Try(s.parseJson.convertTo[Movie]) match {
         case Success(m) => Right(m)
-        case Failure(t) => logger.error(t, t.getMessage); Left(t.getMessage)
+        case Failure(t) => logger.error(t, s"Failed to unmarshal OMDb response: $str"); Left(t.getMessage)
       }
     }
   })
@@ -56,7 +57,12 @@ class OMDbClient extends MovieClient {
     logger.info(s"OMDb request: $uri")
 
     omdbRequest(RequestBuilding.Get(uri))
-      .flatMap { response => responseMatcher(response)(response.status) }
+      .flatMap { response =>
+        EitherT(responseMatcher(response)(response.status)).leftMap(msg => {
+          logger.error(s"Failed to find a movie with title: $title and year: $year")
+          msg
+        }).value
+      }
   }
 
   override def findById(id: String): Future[Either[String, Movie]] = {
@@ -64,7 +70,12 @@ class OMDbClient extends MovieClient {
     logger.info(s"OMDb request: $uri")
 
     omdbRequest(RequestBuilding.Get(uri))
-      .flatMap { response => responseMatcher(response)(response.status) }
+      .flatMap { response =>
+        EitherT(responseMatcher(response)(response.status)).leftMap(msg => {
+          logger.error(s"Failed to find a movie with id: $id")
+          msg
+        }).value
+      }
   }
 }
 

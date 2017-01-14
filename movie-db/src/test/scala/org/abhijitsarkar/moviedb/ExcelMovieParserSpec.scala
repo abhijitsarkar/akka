@@ -14,7 +14,13 @@ class ExcelMovieParserSpec extends FlatSpec
     val m = parseMovies(getClass.getResource("/test.xlsx"))
 
     m should have size 10
-    m should contain(("Pretty Woman", "1990"))
+    m should contain(("Final Fantasy", "2001"))
     m should contain(("Aladdin", "1992"))
+  }
+
+  "ExcelMovieParser" should "take until last -" in {
+    val title = takeUntil(takeUntil("Universal Soldier - CD 2", '.'), '-').trim
+
+    title shouldBe("Universal Soldier")
   }
 }

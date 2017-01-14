@@ -12,49 +12,51 @@ import scala.concurrent.duration._
 class MongoDbMovieRepositorySpec extends FlatSpec
   with Matchers {
 
-  val newMovie = {
-    Movie(
-      "test",
-      -1,
-      Nil,
-      "",
-      "",
-      Nil,
-      Nil,
-      "",
-      "",
-      "",
-      "",
-      -1,
-      -1.0,
-      "1"
+  val movies = {
+    Seq(
+      Movie(
+        "test",
+        -1,
+        Nil,
+        "",
+        "",
+        Nil,
+        Nil,
+        Nil,
+        Nil,
+        "",
+        "",
+        -1,
+        -1.0,
+        "1"
+      )
     )
   }
 
   val repo = MongoDbMovieRepository(MongoDriver())
 
   "MovieRepository" should "create a movie" in {
-    val id = repo.create(newMovie)
+    val id = repo.create(movies)
 
-    Await.result(id, 1.second) shouldBe Some("1")
+    Await.result(id, 1.second) shouldBe 1
   }
 
   "MovieRepository" should "find a movie" in {
-    val created = Await.result(repo.create(newMovie), 1.second).getOrElse("")
+    Await.result(repo.create(movies), 1.second)
 
-    val found = repo.findById(created)
+    val found = repo.findById("1")
 
     Await.result(found, 1.second).map(_.imdbId) shouldBe Some("1")
   }
 
   "MovieRepository" should "delete a movie" in {
-    val created = Await.result(repo.create(newMovie), 1.second).getOrElse("")
+    Await.result(repo.create(movies), 1.second)
 
-    val found = repo.findById(created)
+    val found = repo.findById("1")
 
     Await.result(found, 1.second).map(_.imdbId) shouldBe Some("1")
 
-    val deleted = Await.result(repo.delete(created), 1.second).getOrElse("")
+    val deleted = Await.result(repo.delete("1"), 1.second).getOrElse("")
 
     val notFound = repo.findById(deleted)
 

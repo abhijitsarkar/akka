@@ -1,4 +1,6 @@
-name := "movie-database"
+enablePlugins(JavaAppPackaging)
+
+name := "movie-db"
 organization := "org.abhijitsarkar"
 version := "1.0.0-SNAPSHOT"
 scalaVersion := "2.12.1"
