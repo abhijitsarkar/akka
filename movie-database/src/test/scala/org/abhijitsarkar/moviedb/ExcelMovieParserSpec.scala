@@ -5,9 +5,11 @@ import org.scalatest.{FlatSpec, Matchers}
 /**
   * @author Abhijit Sarkar
   */
+
+import org.abhijitsarkar.moviedb.ExcelMovieParser._
+
 class ExcelMovieParserSpec extends FlatSpec
-  with Matchers
-  with ExcelMovieParser {
+  with Matchers {
   "ExcelMovieParser" should "extract name and year from file" in {
     val m = parseMovies(getClass.getResource("/test.xlsx"))
 

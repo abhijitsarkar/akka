@@ -27,6 +27,7 @@ libraryDependencies ++= {
   val poiVersion = "3.15"
   val logbackVersion = "1.1.7"
   val akkaSlf4jVersion = "2.4.16"
+  val catsVersion = "0.8.1"
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaVersion,
     "com.typesafe.akka" %% "akka-stream" % akkaVersion,
@@ -34,6 +35,7 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
     "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion,
     "org.reactivemongo" %% "reactivemongo" % reactiveMongoVersion,
+    "org.typelevel" %% "cats" % catsVersion,
     "org.apache.poi" % "poi-ooxml" % poiVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
     "com.typesafe.akka" %% "akka-slf4j" % akkaSlf4jVersion,

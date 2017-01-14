@@ -2,27 +2,33 @@ package org.abhijitsarkar.moviedb
 
 import java.net.URL
 
+import akka.http.scaladsl.Http
 import akka.stream._
 import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import reactivemongo.api.MongoDriver
 
 /**
   * @author Abhijit Sarkar
   */
-object MovieApp extends MovieService with MovieRepositoryHelper with ExcelMovieParser {
+object MovieApp {
+  val driver = MongoDriver()
+  val repo = MongoDbMovieRepository(driver)
+  val client = OMDbClient()
+
   val g = (url: String) => RunnableGraph.fromGraph(GraphDSL.create(Sink.ignore) {
     implicit builder =>
       sink =>
         import GraphDSL.Implicits._
 
         // Source
-        val A: Outlet[(String, String)] = builder.add(Source.fromIterator(() => parseMovies(new URL(url)).iterator)).out
+        import ExcelMovieParser._
+        val A: Outlet[(String, String)] = builder.add(Source.fromIterator(() =>
+          parseMovies(new URL(url)).iterator)).out
         // Flow
-        val B: FlowShape[(String, String), Either[String, Movie]] = builder.add(findMovie)
+        import MovieService._
+        val B: FlowShape[(String, String), Either[String, Movie]] = builder.add(findMovieByTitleAndYear(client))
         // Flow
-        val C: FlowShape[Either[String, Movie], Option[String]] = builder.add(persistMovie)
+        val C: FlowShape[Either[String, Movie], Option[String]] = builder.add(persistMovie(repo))
 
         A ~> B ~> C ~> sink.in
 
@@ -33,9 +39,9 @@ object MovieApp extends MovieService with MovieRepositoryHelper with ExcelMovieP
     require(args.size >= 1, "File URL is required.")
 
     g(args(0)).run
-      .onComplete(_ => {
-        driver.close(5.seconds)
-        Await.result(system.terminate(), 5.seconds)
-      })
+
+    import MovieController._
+
+    Http(system).bindAndHandle(routes(repo, client), config.getString("http.host"), config.getInt("http.port"))
   }
 }
