@@ -25,6 +25,7 @@ libraryDependencies ++= {
   val akkaVersion = "2.4.16"
   val akkaHttpVersion = "10.0.1"
   val scalaTestVersion = "3.0.1"
+  val scalamockVersion = "3.4.2"
   val reactiveMongoVersion = "0.12.1"
   val poiVersion = "3.15"
   val logbackVersion = "1.1.7"
@@ -39,8 +40,9 @@ libraryDependencies ++= {
     "org.reactivemongo" %% "reactivemongo" % reactiveMongoVersion,
     "org.typelevel" %% "cats" % catsVersion,
     "org.apache.poi" % "poi-ooxml" % poiVersion,
-    "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
     "com.typesafe.akka" %% "akka-slf4j" % akkaSlf4jVersion,
+    "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
+    "org.scalamock" %% "scalamock-scalatest-support" % scalamockVersion % Test,
     "ch.qos.logback" % "logback-core" % logbackVersion % Runtime,
     "ch.qos.logback" % "logback-classic" % logbackVersion % Runtime
   )

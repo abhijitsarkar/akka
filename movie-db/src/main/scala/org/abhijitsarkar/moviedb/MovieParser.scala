@@ -32,7 +32,8 @@ object ExcelMovieParser extends MovieParser {
       .flatMap(_.rowIterator.asScala)
       .filter(_.getRowNum > 0)
       .map(r => {
-        val title = takeUntil(takeUntil(getCellValue(wb, r, 0), '.'), '-').trim
+        // remove various dashes
+        val title = takeUntil(getCellValue(wb, r, 0), List('.', '-')).trim
         val m = (title, getCellValue(wb, r, 1))
 
         logger.info(s"Parsed movie: $m")
@@ -46,9 +47,11 @@ object ExcelMovieParser extends MovieParser {
     movie
   }
 
-  def takeUntil(title: String, i: Int) = {
-    val idx = title.lastIndexOf(i)
-    if (idx >= 0) title.take(idx) else title
+  def takeUntil(title: String, i: List[Char]) = {
+    i.foldLeft(title) { (acc, elem) =>
+      val idx = acc.lastIndexOf(elem.toInt)
+      if (idx >= 0) acc.take(idx) else acc
+    }
   }
 
   private def getCellValue(wb: XSSFWorkbook, r: Row, i: Int) = {

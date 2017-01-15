@@ -19,8 +19,8 @@ class ExcelMovieParserSpec extends FlatSpec
   }
 
   "ExcelMovieParser" should "take until last -" in {
-    val title = takeUntil(takeUntil("Universal Soldier - CD 2", '.'), '-').trim
+    val title = takeUntil("Universal Soldier - CD 2", List('.', '-')).trim
 
-    title shouldBe("Universal Soldier")
+    title shouldBe ("Universal Soldier")
   }
 }

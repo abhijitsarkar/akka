@@ -12,26 +12,7 @@ import scala.concurrent.duration._
 class MongoDbMovieRepositorySpec extends FlatSpec
   with Matchers {
 
-  val movies = {
-    Seq(
-      Movie(
-        "test",
-        -1,
-        Nil,
-        "",
-        "",
-        Nil,
-        Nil,
-        Nil,
-        Nil,
-        "",
-        "",
-        -1,
-        -1.0,
-        "1"
-      )
-    )
-  }
+  import TestHelper._
 
   val repo = MongoDbMovieRepository(MongoDriver())
 

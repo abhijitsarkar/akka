@@ -8,9 +8,9 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import cats.data.EitherT
+import cats.instances.future._
 import org.abhijitsarkar.moviedb.MovieProtocol._
 import spray.json._
-import cats.instances.future._
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -37,7 +37,7 @@ class OMDbClient extends MovieClient {
   })
 
   private lazy val omdbConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
-    Http().outgoingConnection(config.getString("omdb.host"), config.getInt("omdb.port"))
+    Http().outgoingConnection(config.getString("omdb.host"))
 
   private def omdbRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request)
     .via(omdbConnectionFlow)

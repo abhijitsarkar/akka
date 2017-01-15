@@ -3,7 +3,7 @@ package org.abhijitsarkar.moviedb
 import java.text.NumberFormat.getNumberInstance
 import java.util.Locale.US
 
-import spray.json.{DefaultJsonProtocol, DeserializationException, JsArray, JsObject, JsString, JsValue, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, DeserializationException, JsArray, JsNumber, JsObject, JsString, JsValue, RootJsonFormat}
 
 import scala.util.Try
 
@@ -32,7 +32,7 @@ object MovieProtocol extends DefaultJsonProtocol {
   implicit object MovieJsonFormat extends RootJsonFormat[Movie] {
     def write(m: Movie) = JsObject(
       "title" -> JsString(m.title),
-      "year" -> JsString(m.year.toString),
+      "year" -> JsNumber(m.year),
       "genres" -> JsArray(m.genres.map(JsString(_)).toVector),
       "mpaaRating" -> JsString(m.mpaaRating),
       "runtime" -> JsString(m.runtime),
@@ -42,8 +42,8 @@ object MovieProtocol extends DefaultJsonProtocol {
       "countries" -> JsArray(m.countries.map(JsString(_)).toVector),
       "type" -> JsString(m.`type`),
       "plot" -> JsString(m.plot),
-      "imdbVotes" -> JsString(m.imdbVotes.toString),
-      "imdbRating" -> JsString(m.imdbRating.toString),
+      "imdbVotes" -> JsNumber(m.imdbVotes),
+      "imdbRating" -> JsNumber(m.imdbRating),
       "imdbId" -> JsString(m.imdbId)
     )
 
