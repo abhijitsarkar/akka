@@ -1,5 +1,5 @@
-# scala
-My Scala projects
+# akka
+My Akka projects
 
 ## References
 
