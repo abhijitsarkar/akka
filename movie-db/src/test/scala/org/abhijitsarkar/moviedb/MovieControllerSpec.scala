@@ -117,14 +117,18 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 404 if the movie lookup fails for update" in {
+  "MovieController" should "return 500 if the movie lookup fails for update" in {
     (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
 
     Put(s"/movies/id") ~> routes ~> check {
-      status shouldBe NotFound
+      status shouldBe InternalServerError
 
       (repo.create _).verify(*).never
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s should not be empty
     }
   }
 
@@ -156,14 +160,18 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 404 if the movie lookup fails for insert" in {
+  "MovieController" should "return 500 if the movie lookup fails for insert" in {
     (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
     (repo.findById _).when("id").returns(FastFuture.successful(None))
 
     Put(s"/movies/id") ~> routes ~> check {
-      status shouldBe NotFound
+      status shouldBe InternalServerError
 
       (repo.create _).verify(*).never
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s should not be empty
     }
   }
 

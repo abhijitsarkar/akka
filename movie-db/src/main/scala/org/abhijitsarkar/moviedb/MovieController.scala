@@ -32,12 +32,19 @@ trait MovieController extends MovieService {
       HttpEntity(`application/json`, m.toJson.compactPrint)
     })
 
-  private def persistMovie(m: Movie, successCode: StatusCode) = persistMovies
+  private def persistMovie(m: Movie, successCode: StatusCode): Future[HttpResponse] = persistMovies
     .runWith(Source.single(Right(m)), Sink.head)
     ._2.flatten.transformWith {
     _ match {
       case Successful(i) if (i == 1) => FastFuture.successful(HttpResponse(status = successCode))
       case Failure(ex) => FastFuture.successful(HttpResponse(status = InternalServerError, entity = ex.getMessage))
+    }
+  }
+
+  private def transformResponse(e: Either[String, Movie]): Future[HttpResponse] = {
+    e match {
+      case Right(m) => persistMovie(m, Created)
+      case Left(msg) => FastFuture.successful(HttpResponse(status = InternalServerError, entity = msg))
     }
   }
 
@@ -63,14 +70,10 @@ trait MovieController extends MovieService {
               complete {
                 val m = EitherT(findMovieByImdbId(id))
                 OptionT(findMovieById(id))
-                  .toRight(s"Failed to find a movie with id: $id")
+                  .toRight("")
                   .flatMap(_ => m)
                   .semiflatMap(persistMovie(_, NoContent))
-                  .getOrElseF {
-                    m
-                      .semiflatMap(persistMovie(_, Created))
-                      .getOrElse(HttpResponse(status = NotFound))
-                  }
+                  .getOrElseF(m.value.transform(transformResponse, identity).flatten)
               }
             }
         } ~ (post & entity(as[String])) { url =>
