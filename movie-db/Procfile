@@ -1,1 +1,1 @@
-web: target/universal/stage/bin/movie-db -Dhttp.port=${PORT}
+web: target/universal/stage/bin/movie-db -Dhttp.port=${PORT} -Dlogback.configurationFile=logback-heroku.xml
