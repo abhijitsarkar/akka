@@ -1,5 +1,6 @@
 package org.abhijitsarkar.moviedb
 
+import akka.http.scaladsl.util.FastFuture
 import reactivemongo.api._
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.Command
@@ -72,7 +73,7 @@ object MongoDbMovieRepository {
     val db = for {
       uri <- Future.fromTry(MongoConnection.parseURI(mongodbConfig.getString("uri")))
       con = driver.connection(uri)
-      dn <- Future(uri.db.get)
+      dn <- FastFuture.successful(uri.db.get)
       db <- con.database(dn)
     } yield db
 

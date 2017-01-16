@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.ContentTypes.`application/json`
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.util.FastFuture
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import cats.Applicative
@@ -18,7 +19,7 @@ import spray.json._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Try, Success => Successful}
 
 /**
   * @author Abhijit Sarkar
@@ -66,14 +67,14 @@ trait MovieController extends MovieService {
         } ~ (post & entity(as[String])) { url =>
           complete {
             Try(new URL(url)) match {
-              case scala.util.Success(u) => {
+              case Successful(u) => {
                 val src = Source.fromIterator(() => parseMovies(u).iterator)
 
                 src
                   .via(findMovieByTitleAndYear)
                   .via(persistMovies)
                   .completionTimeout(5.minutes)
-                  .toMat(Sink.fold(Future(0))((acc, elem) => Applicative[Future].map2(acc, elem)(_ + _)))(Keep.right)
+                  .toMat(Sink.fold(FastFuture.successful(0))((acc, elem) => Applicative[Future].map2(acc, elem)(_ + _)))(Keep.right)
                   // http://doc.akka.io/docs/akka/current/scala/dispatchers.html
                   // http://blog.akka.io/streams/2016/07/06/threading-and-concurrency-in-akka-streams-explained
                   // http://doc.akka.io/docs/akka/current/scala/stream/stream-parallelism.html

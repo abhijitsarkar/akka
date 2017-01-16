@@ -5,13 +5,14 @@ import akka.http.scaladsl.model.ResponseEntity
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import akka.http.scaladsl.util.FastFuture
 import org.abhijitsarkar.moviedb.TestHelper._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{FlatSpec, Matchers}
 import spray.json._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -44,7 +45,7 @@ class MovieControllerSpec extends FlatSpec
   })
 
   "MovieController" should "return movie when found" in {
-    (repo.findById _).when("id").returns(Future(Some(movie)))
+    (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
 
     Get(s"/movies/id") ~> routes ~> check {
       status shouldBe OK
@@ -57,7 +58,7 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "indicate when movie is not found" in {
-    (repo.findById _).when("id").returns(Future(None))
+    (repo.findById _).when("id").returns(FastFuture.successful(None))
 
     Get(s"/movies/id") ~> routes ~> check {
       status shouldBe NotFound
@@ -65,7 +66,7 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "delete movie when found" in {
-    (repo.delete _).when("id").returns(Future(Some("id")))
+    (repo.delete _).when("id").returns(FastFuture.successful(Some("id")))
 
     Delete(s"/movies/id") ~> routes ~> check {
       status shouldBe OK
@@ -77,7 +78,7 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "indicate when movie cannot be deleted" in {
-    (repo.delete _).when("id").returns(Future(None))
+    (repo.delete _).when("id").returns(FastFuture.successful(None))
 
     Delete(s"/movies/id") ~> routes ~> check {
       status shouldBe NotFound
@@ -85,8 +86,8 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "create a new movie" in {
-    (client.findById _).when("id").returns(Future(Right(movie)))
-    (repo.create _).when(*).onCall((m: Seq[Movie]) => Future(m.size))
+    (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
+    (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
 
     Put(s"/movies/id") ~> routes ~> check {
       status shouldBe OK
@@ -98,7 +99,7 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "indicate when a movie cannot be created" in {
-    (client.findById _).when("id").returns(Future(Left("not found")))
+    (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
 
     Put(s"/movies/id") ~> routes ~> check {
       status shouldBe NotFound
@@ -106,8 +107,8 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "accept request for creating new movies" in {
-    (client.findByTitleAndYear _).when(*, *).returns(Future(Right(movie)))
-    (repo.create _).when(*).onCall((m: Seq[Movie]) => Future(m.size))
+    (client.findByTitleAndYear _).when(*, *).returns(FastFuture.successful(Right(movie)))
+    (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
 
     Post(s"/movies", getClass.getResource("/test.xlsx").toString) ~> routes ~> check {
       status shouldBe Accepted
