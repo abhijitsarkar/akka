@@ -119,11 +119,11 @@ class MovieControllerSpec extends FlatSpec
 
   it should "return 500 if the movie lookup fails for update" in {
     (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
-    (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
 
     Put(s"/movies/id") ~> routes ~> check {
       status shouldBe InternalServerError
 
+      (repo.findById _).verify(*).never
       (repo.create _).verify(*).never
 
       val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
@@ -162,11 +162,11 @@ class MovieControllerSpec extends FlatSpec
 
   it should "return 500 if the movie lookup fails for insert" in {
     (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
-    (repo.findById _).when("id").returns(FastFuture.successful(None))
 
     Put(s"/movies/id") ~> routes ~> check {
       status shouldBe InternalServerError
 
+      (repo.findById _).verify(*).never
       (repo.create _).verify(*).never
 
       val s = Await.result(Unmarshal(response.entity).to[String], 1.second)

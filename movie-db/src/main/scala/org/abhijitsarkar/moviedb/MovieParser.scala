@@ -27,7 +27,7 @@ object ExcelMovieParser extends MovieParser {
     }).getInputStream
 
     val wb = new XSSFWorkbook(is)
-    val movie = (0 until wb.getNumberOfSheets)
+    val movies = (0 until wb.getNumberOfSheets)
       .map(wb.getSheetAt)
       .flatMap(_.rowIterator.asScala)
       .filter(_.getRowNum > 0)
@@ -44,7 +44,7 @@ object ExcelMovieParser extends MovieParser {
     wb.close
     is.close
 
-    movie
+    movies
   }
 
   def takeUntil(title: String, i: List[Char]) = {

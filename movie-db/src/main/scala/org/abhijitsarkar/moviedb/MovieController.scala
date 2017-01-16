@@ -10,9 +10,8 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import cats.Applicative
 import cats.data.{EitherT, OptionT}
-import cats.instances.future._
+import cats.implicits._
 import org.abhijitsarkar.moviedb.ExcelMovieParser.parseMovies
 import org.abhijitsarkar.moviedb.MovieProtocol._
 import spray.json._
@@ -27,7 +26,7 @@ import scala.util.{Failure, Try, Success => Successful}
 trait MovieController extends MovieService {
   // (StatusCode, T) can be marshaled, if a ToEntityMarshaller[T] is available
   // http://doc.akka.io/docs/akka-http/current/scala/http/common/marshalling.html
-  implicit val movieMarshaller: ToEntityMarshaller[Movie] = Marshaller.oneOf(
+  private implicit val movieMarshaller: ToEntityMarshaller[Movie] = Marshaller.oneOf(
     Marshaller.withFixedContentType(`application/json`) { m =>
       HttpEntity(`application/json`, m.toJson.compactPrint)
     })
@@ -35,18 +34,16 @@ trait MovieController extends MovieService {
   private def persistMovie(m: Movie, successCode: StatusCode): Future[HttpResponse] = persistMovies
     .runWith(Source.single(Right(m)), Sink.head)
     ._2.flatten.transformWith {
-    _ match {
-      case Successful(i) if (i == 1) => FastFuture.successful(HttpResponse(status = successCode))
-      case Failure(ex) => FastFuture.successful(HttpResponse(status = InternalServerError, entity = ex.getMessage))
-    }
+    case Successful(i) if (i == 1) => FastFuture.successful(HttpResponse(status = successCode))
+    case Failure(ex) => FastFuture.successful(HttpResponse(status = InternalServerError, entity = ex.getMessage))
   }
 
-  private def transformResponse(e: Either[String, Movie]): Future[HttpResponse] = {
-    e match {
+  private def transformResponse(e: EitherT[Future, String, Movie]): Future[HttpResponse] = {
+    e.value.transform(_ match {
       case Right(m) => persistMovie(m, Created)
       case Left(msg) => FastFuture.successful(HttpResponse(status = InternalServerError, entity = msg))
-    }
-  }
+    }, identity)
+  }.flatten
 
   val routes = {
     logRequestResult(getClass.getSimpleName) {
@@ -69,11 +66,14 @@ trait MovieController extends MovieService {
             put {
               complete {
                 val m = EitherT(findMovieByImdbId(id))
-                OptionT(findMovieById(id))
-                  .toRight("")
-                  .flatMap(_ => m)
-                  .semiflatMap(persistMovie(_, NoContent))
-                  .getOrElseF(m.value.transform(transformResponse, identity).flatten)
+
+                m
+                  .semiflatMap(_ => findMovieById(id))
+                  .semiflatMap {
+                    case Some(x) => persistMovie(x, NoContent)
+                    case _ => transformResponse(m)
+                  }
+                  .getOrElseF(transformResponse(m))
               }
             }
         } ~ (post & entity(as[String])) { url =>
@@ -86,17 +86,15 @@ trait MovieController extends MovieService {
                   .via(findMovieByTitleAndYear)
                   .via(persistMovies)
                   .completionTimeout(5.minutes)
-                  .toMat(Sink.fold(FastFuture.successful(0))((acc, elem) => Applicative[Future].map2(acc, elem)(_ + _)))(Keep.right)
+                  .toMat(Sink.fold(FastFuture.successful(0))((acc, elem) => (acc |@| elem).map(_ + _)))(Keep.right)
                   // http://doc.akka.io/docs/akka/current/scala/dispatchers.html
                   // http://blog.akka.io/streams/2016/07/06/threading-and-concurrency-in-akka-streams-explained
                   // http://doc.akka.io/docs/akka/current/scala/stream/stream-parallelism.html
                   .withAttributes(ActorAttributes.dispatcher("blocking-io-dispatcher"))
                   .run.flatten
                   .onComplete {
-                    _ match {
-                      case scala.util.Success(n) => logger.info(s"Created $n movies")
-                      case Failure(t) => logger.error(t, "Failed to create movies")
-                    }
+                    case Successful(n) => logger.info(s"Created $n movies")
+                    case Failure(t) => logger.error(t, "Failed to create movies")
                   }
 
                 Accepted
