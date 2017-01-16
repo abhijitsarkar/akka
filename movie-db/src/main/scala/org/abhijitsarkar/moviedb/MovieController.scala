@@ -2,18 +2,19 @@ package org.abhijitsarkar.moviedb
 
 import java.net.URL
 
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.marshalling.ToResponseMarshallable
+import akka.http.scaladsl.marshalling.{Marshal, Marshaller, ToEntityMarshaller}
+import akka.http.scaladsl.model.ContentTypes.`application/json`
 import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import cats.Applicative
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.instances.future._
-import cats.instances.option._
 import org.abhijitsarkar.moviedb.ExcelMovieParser.parseMovies
 import org.abhijitsarkar.moviedb.MovieProtocol._
+import spray.json._
 
 import scala.concurrent.Future
 import scala.util.{Failure, Try}
@@ -22,40 +23,43 @@ import scala.util.{Failure, Try}
   * @author Abhijit Sarkar
   */
 trait MovieController extends MovieService {
+  // (StatusCode, T) can be marshaled, if a ToEntityMarshaller[T] is available
+  // http://doc.akka.io/docs/akka-http/current/scala/http/common/marshalling.html
+  private def notFoundResponse(id: String) = Marshal(NotFound -> s"No movie found with id: $id").to[HttpResponse]
+
+  implicit val movieMarshaller: ToEntityMarshaller[Movie] = Marshaller.oneOf(
+    Marshaller.withFixedContentType(`application/json`) { m =>
+      HttpEntity(`application/json`, m.toJson.compactPrint)
+    })
+
+  private def okResponse[A](a: A)(implicit m: ToEntityMarshaller[A]) = Marshal(OK -> a).to[HttpResponse]
+
   val routes = {
     logRequestResult(getClass.getSimpleName) {
       pathPrefix("movies") {
         path(Segment) { id =>
           get {
             complete {
-              findMovieById(id).map[ToResponseMarshallable] {
-                _ match {
-                  case Some(x) => x
-                  case _ => NotFound -> s"No movie found with id: $id"
-                }
-              }
+              OptionT(findMovieById(id))
+                .semiflatMap(okResponse(_))
+                .getOrElseF(notFoundResponse(id))
             }
           } ~
             delete {
               complete {
-                deleteMovie(id).map[ToResponseMarshallable] {
-                  _ match {
-                    case Some(x) => x
-                    case _ => NotFound -> s"No movie found with id: $id"
-                  }
-                }
+                OptionT(deleteMovie(id))
+                  .semiflatMap(okResponse(_))
+                  .getOrElseF(notFoundResponse(id))
               }
             } ~
             put {
               complete {
-                val f = EitherT(findMovieByImdbId(id))
-
-                f.to[Option].map[ToResponseMarshallable] {
-                  _ match {
-                    case Some(m) => persistMovies.runWith(Source.single(Right(m)), Sink.ignore); m
-                    case _ => NotFound -> s"No movie found with id: $id"
+                EitherT(findMovieByImdbId(id))
+                  .semiflatMap { m =>
+                    persistMovies.runWith(Source.single(Right(m)), Sink.ignore)
+                    okResponse(m)
                   }
-                }
+                  .getOrElseF(notFoundResponse(id))
               }
             }
         } ~ (post & entity(as[String])) { url =>
