@@ -5,7 +5,7 @@ import java.net.URL
 import akka.http.scaladsl.marshalling.{Marshal, Marshaller, ToEntityMarshaller}
 import akka.http.scaladsl.model.ContentTypes.`application/json`
 import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.util.FastFuture
 import akka.stream.ActorAttributes
@@ -27,14 +27,19 @@ import scala.util.{Failure, Try, Success => Successful}
 trait MovieController extends MovieService {
   // (StatusCode, T) can be marshaled, if a ToEntityMarshaller[T] is available
   // http://doc.akka.io/docs/akka-http/current/scala/http/common/marshalling.html
-  private def notFoundResponse(id: String) = Marshal(NotFound -> s"No movie found with id: $id").to[HttpResponse]
-
   implicit val movieMarshaller: ToEntityMarshaller[Movie] = Marshaller.oneOf(
     Marshaller.withFixedContentType(`application/json`) { m =>
       HttpEntity(`application/json`, m.toJson.compactPrint)
     })
 
-  private def okResponse[A](a: A)(implicit m: ToEntityMarshaller[A]) = Marshal(OK -> a).to[HttpResponse]
+  private def persistMovie(m: Movie, successCode: StatusCode) = persistMovies
+    .runWith(Source.single(Right(m)), Sink.head)
+    ._2.flatten.transformWith {
+    _ match {
+      case Successful(i) if (i == 1) => FastFuture.successful(HttpResponse(status = successCode))
+      case Failure(ex) => FastFuture.successful(HttpResponse(status = InternalServerError, entity = ex.getMessage))
+    }
+  }
 
   val routes = {
     logRequestResult(getClass.getSimpleName) {
@@ -43,25 +48,26 @@ trait MovieController extends MovieService {
           get {
             complete {
               OptionT(findMovieById(id))
-                .semiflatMap(okResponse(_))
-                .getOrElseF(notFoundResponse(id))
+                .semiflatMap(m => Marshal(OK -> m).to[HttpResponse])
+                .getOrElse(HttpResponse(status = NotFound))
             }
           } ~
             delete {
               complete {
                 OptionT(deleteMovie(id))
-                  .semiflatMap(okResponse(_))
-                  .getOrElseF(notFoundResponse(id))
+                  .map[StatusCode](_ => NoContent)
+                  .getOrElse(NotFound)
               }
             } ~
             put {
               complete {
-                EitherT(findMovieByImdbId(id))
-                  .semiflatMap { m =>
-                    persistMovies.runWith(Source.single(Right(m)), Sink.ignore)
-                    okResponse(m)
+                OptionT(findMovieById(id))
+                  .semiflatMap(persistMovie(_, NoContent))
+                  .getOrElseF {
+                    EitherT(findMovieByImdbId(id))
+                      .semiflatMap(persistMovie(_, Created))
+                      .getOrElse(HttpResponse(status = NotFound))
                   }
-                  .getOrElseF(notFoundResponse(id))
               }
             }
         } ~ (post & entity(as[String])) { url =>

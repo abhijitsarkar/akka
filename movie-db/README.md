@@ -16,7 +16,8 @@ $ curl -X DELETE "http://localhost:9000/movies/tt0076759"
 $ curl -X PUT "http://localhost:9000/movies/tt0076759"
 ```
 
-> The insert operation first fetches the movie information from an internet source and then inserts in the local database.
+> The insert operation first looks up the movie locally; if not found, it then fetches the movie information from an 
+internet source and inserts in the local database.
 
 ### Insert movies by reading from an Excel file
 ```

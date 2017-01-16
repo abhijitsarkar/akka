@@ -44,7 +44,7 @@ class MovieControllerSpec extends FlatSpec
     }
   })
 
-  "MovieController" should "return movie when found" in {
+  "MovieController" should "return 200 and the movie when it is found" in {
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
 
     Get(s"/movies/id") ~> routes ~> check {
@@ -57,27 +57,31 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "indicate when movie is not found" in {
+  "MovieController" should "return 404 if the movie is not found" in {
     (repo.findById _).when("id").returns(FastFuture.successful(None))
 
     Get(s"/movies/id") ~> routes ~> check {
       status shouldBe NotFound
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s shouldBe empty
     }
   }
 
-  "MovieController" should "delete movie when found" in {
+  "MovieController" should "return 204 after deleting a movie" in {
     (repo.delete _).when("id").returns(FastFuture.successful(Some("id")))
 
     Delete(s"/movies/id") ~> routes ~> check {
-      status shouldBe OK
+      status shouldBe NoContent
 
-      val m = Await.result(Unmarshal(response.entity).to[String], 1.second)
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
 
-      m shouldBe "id"
+      s shouldBe empty
     }
   }
 
-  "MovieController" should "indicate when movie cannot be deleted" in {
+  "MovieController" should "return 404 if the movie is not found for deletion" in {
     (repo.delete _).when("id").returns(FastFuture.successful(None))
 
     Delete(s"/movies/id") ~> routes ~> check {
@@ -85,28 +89,61 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "create a new movie" in {
+  "MovieController" should "return 204 after updating a movie" in {
+    (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
+    (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(1))
+
+    Put(s"/movies/id") ~> routes ~> check {
+      status shouldBe NoContent
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s shouldBe empty
+    }
+  }
+
+  "MovieController" should "return 500 if failed to update a movie" in {
+    (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
+    (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(0))
+
+    Put(s"/movies/id") ~> routes ~> check {
+      status shouldBe InternalServerError
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s should not be empty
+    }
+  }
+
+  "MovieController" should "return 201 after creating a new movie" in {
+    (repo.findById _).when("id").returns(FastFuture.successful(None))
     (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
 
     Put(s"/movies/id") ~> routes ~> check {
-      status shouldBe OK
+      status shouldBe Created
 
-      val m = Await.result(Unmarshal(response.entity).to[Movie], 1.second)
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
 
-      m.title shouldBe "test"
+      s shouldBe empty
     }
   }
 
-  "MovieController" should "indicate when a movie cannot be created" in {
-    (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
+  "MovieController" should "return 500 if failed to create a new movie" in {
+    (repo.findById _).when("id").returns(FastFuture.successful(None))
+    (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
+    (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(0))
 
     Put(s"/movies/id") ~> routes ~> check {
-      status shouldBe NotFound
+      status shouldBe InternalServerError
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s should not be empty
     }
   }
 
-  "MovieController" should "accept request for creating new movies" in {
+  "MovieController" should "return 202 in response to bulk creation request" in {
     (client.findByTitleAndYear _).when(*, *).returns(FastFuture.successful(Right(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
 
@@ -115,9 +152,13 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "indicate when movies cannot be created" in {
+  "MovieController" should "return 400 if the URL is malformed" in {
     Post(s"/movies", "whatever") ~> routes ~> check {
       status shouldBe BadRequest
+
+      val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
+
+      s should not be empty
     }
   }
 }
