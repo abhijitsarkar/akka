@@ -37,7 +37,7 @@ class MovieServiceSpec extends FlatSpec
     Await.result(count, 1.second) shouldBe 3
   }
 
-  "MovieService" should "convert tuple to Movie" in {
+  it should "convert tuple to Movie" in {
     (client.findByTitleAndYear _).when(*, *).returns(FastFuture.successful(Right(movie)))
 
     val m: Future[Either[String, Movie]] = findMovieByTitleAndYear

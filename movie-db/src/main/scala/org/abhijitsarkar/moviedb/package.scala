@@ -15,7 +15,7 @@ package object moviedb {
   implicit val executor: ExecutionContext = system.dispatcher
   implicit val materializer: Materializer = ActorMaterializer()
 
-  val config: Config = system.settings.config
+  lazy val config: Config = system.settings.config
 
-  val logger: LoggingAdapter = Logging.getLogger(system, this)
+  lazy val logger: LoggingAdapter = Logging.getLogger(system, this)
 }

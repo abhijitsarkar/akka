@@ -13,13 +13,13 @@ class OMDbClientSpec extends FlatSpec
   with EitherValues {
 
   val client = OMDbClient()
-  "Client" should "find a movie by title and year" in {
+  "OMDbClient" should "find a movie by title and year" in {
     val movie = Await.result(client.findByTitleAndYear("rogue one", "2016"), 1.second).right.value
 
     movie.imdbId should be("tt3748528")
   }
 
-  "Client" should "find a movie by IMDB id" in {
+  it should "find a movie by IMDB id" in {
     val movie = Await.result(client.findById("tt3748528"), 1.second).right.value
 
     movie.imdbId should be("tt3748528")

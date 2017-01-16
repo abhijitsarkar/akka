@@ -57,7 +57,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 404 if the movie is not found" in {
+  it should "return 404 if the movie is not found" in {
     (repo.findById _).when("id").returns(FastFuture.successful(None))
 
     Get(s"/movies/id") ~> routes ~> check {
@@ -69,7 +69,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 204 after deleting a movie" in {
+  it should "return 204 after deleting a movie" in {
     (repo.delete _).when("id").returns(FastFuture.successful(Some("id")))
 
     Delete(s"/movies/id") ~> routes ~> check {
@@ -81,7 +81,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 404 if the movie is not found for deletion" in {
+  it should "return 404 if the movie is not found for deletion" in {
     (repo.delete _).when("id").returns(FastFuture.successful(None))
 
     Delete(s"/movies/id") ~> routes ~> check {
@@ -89,7 +89,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 204 after updating a movie" in {
+  it should "return 204 after updating a movie" in {
     (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(1))
@@ -103,7 +103,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 500 if failed to update a movie" in {
+  it should "return 500 if failed to update a movie" in {
     (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(0))
@@ -117,7 +117,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 500 if the movie lookup fails for update" in {
+  it should "return 500 if the movie lookup fails for update" in {
     (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
 
@@ -132,7 +132,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 201 after creating a new movie" in {
+  it should "return 201 after creating a new movie" in {
     (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.findById _).when("id").returns(FastFuture.successful(None))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
@@ -146,7 +146,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 500 if failed to create a new movie" in {
+  it should "return 500 if failed to create a new movie" in {
     (repo.findById _).when("id").returns(FastFuture.successful(None))
     (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(0))
@@ -160,7 +160,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 500 if the movie lookup fails for insert" in {
+  it should "return 500 if the movie lookup fails for insert" in {
     (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
     (repo.findById _).when("id").returns(FastFuture.successful(None))
 
@@ -175,7 +175,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 202 in response to bulk creation request" in {
+  it should "return 202 in response to bulk creation request" in {
     (client.findByTitleAndYear _).when(*, *).returns(FastFuture.successful(Right(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
 
@@ -184,7 +184,7 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
-  "MovieController" should "return 400 if the URL is malformed" in {
+  it should "return 400 if the URL is malformed" in {
     Post(s"/movies", "whatever") ~> routes ~> check {
       status shouldBe BadRequest
 

@@ -15,32 +15,33 @@ class MongoDbMovieRepositorySpec extends FlatSpec
   import TestHelper._
 
   val repo = MongoDbMovieRepository(MongoDriver())
+  val timeout = 5.seconds
 
   "MovieRepository" should "create a movie" in {
     val id = repo.create(movies)
 
-    Await.result(id, 1.second) shouldBe 1
+    Await.result(id, timeout) shouldBe 1
   }
 
-  "MovieRepository" should "find a movie" in {
-    Await.result(repo.create(movies), 1.second)
+  it should "find a movie" in {
+    Await.result(repo.create(movies), timeout)
 
     val found = repo.findById("1")
 
-    Await.result(found, 1.second).map(_.imdbId) shouldBe Some("1")
+    Await.result(found, timeout).map(_.imdbId) shouldBe Some("1")
   }
 
-  "MovieRepository" should "delete a movie" in {
-    Await.result(repo.create(movies), 1.second)
+  it should "delete a movie" in {
+    Await.result(repo.create(movies), timeout)
 
     val found = repo.findById("1")
 
-    Await.result(found, 1.second).map(_.imdbId) shouldBe Some("1")
+    Await.result(found, timeout).map(_.imdbId) shouldBe Some("1")
 
-    val deleted = Await.result(repo.delete("1"), 1.second).getOrElse("")
+    val deleted = Await.result(repo.delete("1"), timeout).getOrElse("")
 
     val notFound = repo.findById(deleted)
 
-    Await.result(notFound, 1.second) shouldBe None
+    Await.result(notFound, timeout) shouldBe None
   }
 }

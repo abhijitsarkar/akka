@@ -72,7 +72,10 @@ object MongoDbMovieRepository {
 
     val db = for {
       uri <- Future.fromTry(MongoConnection.parseURI(mongodbConfig.getString("uri")))
-      con = driver.connection(uri)
+      con = {
+        logger.debug(s"Connecting to MongoDB URI: ${uri.toString}")
+        driver.connection(uri)
+      }
       dn <- FastFuture.successful(uri.db.get)
       db <- con.database(dn)
     } yield db

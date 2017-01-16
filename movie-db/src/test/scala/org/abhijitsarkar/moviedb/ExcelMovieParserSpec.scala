@@ -18,7 +18,7 @@ class ExcelMovieParserSpec extends FlatSpec
     m should contain(("Aladdin", "1992"))
   }
 
-  "ExcelMovieParser" should "take until last -" in {
+  it should "take until last -" in {
     val title = takeUntil("Universal Soldier - CD 2", List('.', '-')).trim
 
     title shouldBe ("Universal Soldier")

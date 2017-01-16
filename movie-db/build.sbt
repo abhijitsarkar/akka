@@ -21,11 +21,18 @@ scalacOptions := Seq(
   "-Xfatal-warnings"
 )
 
+fork in Test := true
+
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-h", "target/test-reports")
+// IntelliJ ignores this $^G()$#
+javaOptions in Test += "-Dconfig.file=src/test/resources/test.conf"
+
 libraryDependencies ++= {
   val akkaVersion = "2.4.16"
   val akkaHttpVersion = "10.0.1"
   val scalaTestVersion = "3.0.1"
   val scalamockVersion = "3.4.2"
+  val pegdownVersion = "1.6.0"
   val reactiveMongoVersion = "0.12.1"
   val poiVersion = "3.15"
   val logbackVersion = "1.1.7"
@@ -42,11 +49,11 @@ libraryDependencies ++= {
     "org.apache.poi" % "poi-ooxml" % poiVersion,
     "com.typesafe.akka" %% "akka-slf4j" % akkaSlf4jVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
+    "org.pegdown" % "pegdown" % pegdownVersion % Test,
     "org.scalamock" %% "scalamock-scalatest-support" % scalamockVersion % Test,
     "ch.qos.logback" % "logback-core" % logbackVersion % Runtime,
     "ch.qos.logback" % "logback-classic" % logbackVersion % Runtime
   )
 }
-
 
 fork in run := true
