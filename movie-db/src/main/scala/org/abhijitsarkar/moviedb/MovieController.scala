@@ -17,6 +17,7 @@ import org.abhijitsarkar.moviedb.MovieProtocol._
 import spray.json._
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.{Failure, Try}
 
 /**
@@ -71,6 +72,7 @@ trait MovieController extends MovieService {
                 src
                   .via(findMovieByTitleAndYear)
                   .via(persistMovies)
+                  .completionTimeout(5.minutes)
                   .toMat(Sink.fold(Future(0))((acc, elem) => Applicative[Future].map2(acc, elem)(_ + _)))(Keep.right)
                   // http://doc.akka.io/docs/akka/current/scala/dispatchers.html
                   // http://blog.akka.io/streams/2016/07/06/threading-and-concurrency-in-akka-streams-explained
