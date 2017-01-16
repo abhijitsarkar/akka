@@ -61,10 +61,13 @@ trait MovieController extends MovieService {
             } ~
             put {
               complete {
+                val m = EitherT(findMovieByImdbId(id))
                 OptionT(findMovieById(id))
+                  .toRight(s"Failed to find a movie with id: $id")
+                  .flatMap(_ => m)
                   .semiflatMap(persistMovie(_, NoContent))
                   .getOrElseF {
-                    EitherT(findMovieByImdbId(id))
+                    m
                       .semiflatMap(persistMovie(_, Created))
                       .getOrElse(HttpResponse(status = NotFound))
                   }

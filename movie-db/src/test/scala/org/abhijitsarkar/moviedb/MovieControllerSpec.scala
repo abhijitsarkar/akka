@@ -90,6 +90,7 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "return 204 after updating a movie" in {
+    (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(1))
 
@@ -103,6 +104,7 @@ class MovieControllerSpec extends FlatSpec
   }
 
   "MovieController" should "return 500 if failed to update a movie" in {
+    (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
     (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(0))
 
@@ -115,9 +117,20 @@ class MovieControllerSpec extends FlatSpec
     }
   }
 
+  "MovieController" should "return 404 if the movie lookup fails for update" in {
+    (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
+    (repo.findById _).when("id").returns(FastFuture.successful(Some(movie)))
+
+    Put(s"/movies/id") ~> routes ~> check {
+      status shouldBe NotFound
+
+      (repo.create _).verify(*).never
+    }
+  }
+
   "MovieController" should "return 201 after creating a new movie" in {
-    (repo.findById _).when("id").returns(FastFuture.successful(None))
     (client.findById _).when("id").returns(FastFuture.successful(Right(movie)))
+    (repo.findById _).when("id").returns(FastFuture.successful(None))
     (repo.create _).when(*).onCall((m: Seq[Movie]) => FastFuture.successful(m.size))
 
     Put(s"/movies/id") ~> routes ~> check {
@@ -140,6 +153,17 @@ class MovieControllerSpec extends FlatSpec
       val s = Await.result(Unmarshal(response.entity).to[String], 1.second)
 
       s should not be empty
+    }
+  }
+
+  "MovieController" should "return 404 if the movie lookup fails for insert" in {
+    (client.findById _).when("id").returns(FastFuture.successful(Left("not found")))
+    (repo.findById _).when("id").returns(FastFuture.successful(None))
+
+    Put(s"/movies/id") ~> routes ~> check {
+      status shouldBe NotFound
+
+      (repo.create _).verify(*).never
     }
   }
 
