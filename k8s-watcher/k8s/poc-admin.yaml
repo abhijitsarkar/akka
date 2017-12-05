@@ -1,0 +1,31 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: poc-admin
+---
+#kind: Role
+#apiVersion: rbac.authorization.k8s.io/v1beta1
+#metadata:
+#  name: poc-admin
+#  labels:
+#    app: poc-admin
+#rules:
+#- apiGroups:
+#  - '*'
+#  resources:
+#  - '*'
+#  verbs:
+#  - '*'
+#---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: poc-admin
+subjects:
+- kind: ServiceAccount
+  name: poc-admin
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io

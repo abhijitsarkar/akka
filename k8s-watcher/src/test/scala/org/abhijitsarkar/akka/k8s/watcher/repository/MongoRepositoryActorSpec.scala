@@ -52,7 +52,7 @@ class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory
 
     EmbeddedMongoServer.start(mongoProperties.host, mongoProperties.port)
 
-    eventCollection = MongoClientHelper.mongoCollection(mongoProperties)
+    eventCollection = MongoCollectionFactory.createCollection(mongoProperties)
   }
 
   override def afterAll(): Unit = {

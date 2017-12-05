@@ -1,6 +1,6 @@
 package org.abhijitsarkar.akka.k8s.watcher
 
-import java.net.URI
+import java.net.URL
 
 /**
   * @author Abhijit Sarkar
@@ -13,8 +13,10 @@ case class K8SProperties(
                           apiToken: Option[String] = None,
                           apps: List[String] = Nil
                         ) {
-  private val u = URI.create(baseUrl)
+  private val u = new URL(baseUrl)
 
   val host = u.getHost
-  val port = u.getPort
+  val port = if (u.getPort == -1) {
+    if (u.getProtocol == "https") 443 else if (u.getProtocol == "http") 80 else u.getPort
+  }
 }

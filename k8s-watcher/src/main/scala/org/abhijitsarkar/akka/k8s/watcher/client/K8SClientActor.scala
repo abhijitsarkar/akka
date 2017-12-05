@@ -13,8 +13,8 @@ import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Flow, Framing, Source}
 import akka.util.ByteString
 import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
-import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.abhijitsarkar.akka.k8s.watcher.domain.{Event, GetEventsRequest, GetEventsResponse}
+import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -34,9 +34,16 @@ class K8SClientActor(
 
   val timeout = 10.seconds
 
-  if (k8SProperties.baseUrl.startsWith("https") && k8SProperties.certFile.isEmpty) {
-    log.error("Endpoint is secured, but certFile isn't defined. Stopping system.")
-    Await.result(actorSystem.terminate(), timeout)
+  val http = if (k8SProperties.baseUrl.startsWith("https")) {
+    if (k8SProperties.certFile.isEmpty) {
+      log.error("Endpoint is secured, but certFile isn't defined. Stopping system.")
+      Await.result(actorSystem.terminate(), timeout)
+      null // the compiler made me do it
+    } else {
+      SslContextFactory.createClientSslContext(k8SProperties.certFile.get)
+    }
+  } else {
+    Http()
   }
 
   private val authToken: String = {
@@ -53,10 +60,10 @@ class K8SClientActor(
   }
 
   private type RequestPair = (HttpRequest, NotUsed)
-
   private type ResponsePair = (Try[HttpResponse], NotUsed)
   private lazy val poolFlow: Flow[RequestPair, ResponsePair, _] =
-    Http().cachedHostConnectionPool[NotUsed](
+    http
+      .cachedHostConnectionPool[NotUsed](
       host = k8SProperties.host,
       port = k8SProperties.port
     )
@@ -130,14 +137,13 @@ class K8SClientActor(
         )
 
       val graph = Source(apps)
-        .map(app => (request(app), NotUsed))
-
       val graph1 = (if (dispatchers.hasDispatcher(blockingDispatcher)) {
         graph.withAttributes(ActorAttributes.dispatcher(blockingDispatcher))
       } else {
         log.warning("Dispatcher '{}' is not found, falling back to default.", blockingDispatcher)
         graph
       })
+        .map(app => (request(app), NotUsed))
         .via(poolFlow)
         .flatMapMerge(apps.size, responseValidationFlow)
       val done = graph1.runForeach(replyTo ! GetEventsResponse(_))

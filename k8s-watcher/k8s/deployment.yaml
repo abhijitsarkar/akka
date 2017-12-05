@@ -1,0 +1,36 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: k8s-watcher
+  labels:
+    app: k8s-watcher
+spec:
+  selector:
+    matchLabels:
+      app: k8s-watcher
+  template:
+    metadata:
+      labels:
+        app: k8s-watcher
+    spec:
+      serviceAccountName: poc-admin
+      automountServiceAccountToken: true
+      containers:
+      - name: k8s-watcher
+        image: asarkar/k8s-watcher
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        env:
+        - name: K8S_BASE_URL
+          value: "https://kubernetes.default.svc"
+        - name: K8S_CERT_FILE
+          value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - name: K8S_API_TOKEN_FILE
+          value: /var/run/secrets/kubernetes.io/serviceaccount/token
+        - name: K8S_APPS
+          value: k8s-watcher-test
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace

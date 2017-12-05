@@ -9,10 +9,10 @@ import scala.concurrent.{ExecutionContext, Future}
 /**
   * @author Abhijit Sarkar
   */
-object MongoClientHelper {
+object MongoCollectionFactory {
   val driver = MongoDriver()
 
-  def mongoCollection(mongoProperties: MongoProperties)(implicit ec: ExecutionContext): Future[BSONCollection] = {
+  def createCollection(mongoProperties: MongoProperties)(implicit ec: ExecutionContext): Future[BSONCollection] = {
     val connection = (uri: String) => MongoConnection.parseURI(uri)
       .map(driver.connection)
 

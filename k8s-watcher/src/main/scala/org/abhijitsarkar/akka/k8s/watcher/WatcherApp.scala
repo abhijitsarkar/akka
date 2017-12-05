@@ -47,9 +47,9 @@ object WatcherApp extends HttpApp with App with ClientModule with RepositoryModu
     implicitly[ActorSystem].registerOnTermination(() => EmbeddedMongoServer.stop(mongoProperties.host, mongoProperties.port))
   }
 
-  implicitly[ActorSystem].registerOnTermination(() => MongoClientHelper.closeDriver())
+  implicitly[ActorSystem].registerOnTermination(() => MongoCollectionFactory.closeDriver())
 
-  override val eventCollection = MongoClientHelper.mongoCollection(mongoProperties)
+  override val eventCollection = MongoCollectionFactory.createCollection(mongoProperties)
 
   lazy val repositoryActor = createRepositoryActor()
     .taggedWith[Repository]

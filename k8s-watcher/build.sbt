@@ -61,3 +61,42 @@ libraryDependencies ++= Seq(
 )
 
 fork in run := true
+
+import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
+
+lazy val dockerSettings = Seq(
+  dockerAlias := DockerAlias(dockerRepository.value, None, name.value,
+    Some((version in Docker).value)),
+  assemblyMergeStrategy in assembly := {
+    case x => {
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      val strategy = oldStrategy(x)
+      if (strategy == MergeStrategy.deduplicate)
+        MergeStrategy.first
+      else strategy
+    }
+  },
+
+  // Remove all jar mappings in universal and append the fat jar
+  mappings in Universal := {
+    val universalMappings = (mappings in Universal).value
+    val fatJar = (assembly in Compile).value
+    val filtered = universalMappings.filter {
+      case (file, name) => !name.endsWith(".jar")
+    }
+    filtered :+ (fatJar -> ("lib/" + fatJar.getName))
+  },
+  dockerRepository := Some("asarkar"),
+  dockerAlias := DockerAlias(dockerRepository.value, None, name.value + "-scala", Some((version in Docker).value)),
+  dockerCommands := Seq(
+    Cmd("FROM", "openjdk:8u151"),
+    Cmd("WORKDIR", "/"),
+    Cmd("COPY", "opt/docker/lib/*.jar", "/app.jar"),
+    Cmd("RUN", "sh", "-c", "'touch /app.jar'"),
+    ExecCmd("ENTRYPOINT", "sh", "-c", "java -Djava.security.egd=file:/dev/./urandom -jar /app.jar")
+  )
+)
+
+lazy val `k8s-watcher` = (project in file("."))
+  .settings(dockerSettings)
+  .enablePlugins(JavaAppPackaging)
