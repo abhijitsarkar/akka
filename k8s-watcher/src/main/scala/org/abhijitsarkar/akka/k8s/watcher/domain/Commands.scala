@@ -1,7 +1,5 @@
 package org.abhijitsarkar.akka.k8s.watcher.domain
 
-import java.util.UUID
-
 import akka.actor.ActorRef
 import org.abhijitsarkar.akka.k8s.watcher.model.Stats
 
@@ -20,9 +18,9 @@ case class FindByPodUidRequest(uid: String, replyTo: ActorRef)
 
 case class FindByPodUidResponse(event: Option[Event])
 
-case class FindByAppRequest(app: String, replyTo: ActorRef, uuid: UUID)
+case class FindByAppRequest(app: String, replyTo: ActorRef, uuid: String)
 
-case class FindByAppResponse(events: List[Event], uuid: UUID)
+case class FindByAppResponse(events: List[Event], uuid: String)
 
 case object StartWatchingRequest
 

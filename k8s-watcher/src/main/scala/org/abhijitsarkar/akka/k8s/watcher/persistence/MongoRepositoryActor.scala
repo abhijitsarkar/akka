@@ -1,4 +1,4 @@
-package org.abhijitsarkar.akka.k8s.watcher.repository
+package org.abhijitsarkar.akka.k8s.watcher.persistence
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}

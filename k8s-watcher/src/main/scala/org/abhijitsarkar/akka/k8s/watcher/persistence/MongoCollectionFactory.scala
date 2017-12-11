@@ -1,4 +1,4 @@
-package org.abhijitsarkar.akka.k8s.watcher.repository
+package org.abhijitsarkar.akka.k8s.watcher.persistence
 
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.{MongoConnection, MongoDriver}
@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object MongoCollectionFactory {
   val driver = MongoDriver()
 
-  def createCollection(mongoProperties: MongoProperties)(implicit ec: ExecutionContext): Future[BSONCollection] = {
+  def collection(mongoProperties: MongoProperties)(implicit ec: ExecutionContext): Future[BSONCollection] = {
     val connection = (uri: String) => MongoConnection.parseURI(uri)
       .map(driver.connection)
 

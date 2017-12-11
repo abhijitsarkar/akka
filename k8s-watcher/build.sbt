@@ -16,6 +16,7 @@ lazy val reactivemongoVersion = "0.12.7"
 lazy val embeddedMongoVersion = "2.0.0"
 lazy val pegdownVersion = "1.6.0"
 lazy val pureconfigVersion = "0.8.0"
+//lazy val akkaPersistenceMongoVersion = "2.0.4"
 
 scalacOptions := Seq(
   "-encoding",
@@ -45,13 +46,16 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+//  "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
+//  "com.typesafe.akka" %% "akka-persistence-query" % akkaVersion,
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
   "org.typelevel" %% "cats-core" % catsVersion,
   "org.reactivemongo" %% "reactivemongo-akkastream" % reactivemongoVersion,
   "org.reactivemongo" %% "reactivemongo-bson-macros" % reactivemongoVersion,
   "org.reactivemongo" %% "reactivemongo" % reactivemongoVersion,
-  "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % embeddedMongoVersion,
+//  "com.github.scullxbones" %% "akka-persistence-mongo-rxmongo" % akkaPersistenceMongoVersion,
   "com.github.pureconfig" %% "pureconfig" % pureconfigVersion,
+  "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % embeddedMongoVersion,
   "org.scalatest" %% "scalatest" % scalatestVersion % Test,
   "com.github.tomakehurst" % "wiremock" % wiremockVersion % Test,
   "org.pegdown" % "pegdown" % pegdownVersion % Test,
@@ -68,6 +72,7 @@ lazy val dockerSettings = Seq(
   dockerAlias := DockerAlias(dockerRepository.value, None, name.value,
     Some((version in Docker).value)),
   assemblyMergeStrategy in assembly := {
+//    case "reference.conf" => MergeStrategy.last
     case x => {
       val oldStrategy = (assemblyMergeStrategy in assembly).value
       val strategy = oldStrategy(x)
@@ -87,7 +92,7 @@ lazy val dockerSettings = Seq(
     filtered :+ (fatJar -> ("lib/" + fatJar.getName))
   },
   dockerRepository := Some("asarkar"),
-  dockerAlias := DockerAlias(dockerRepository.value, None, name.value + "-scala", Some((version in Docker).value)),
+  dockerAlias := DockerAlias(dockerRepository.value, None, name.value, None),
   dockerCommands := Seq(
     Cmd("FROM", "openjdk:8u151"),
     Cmd("WORKDIR", "/"),

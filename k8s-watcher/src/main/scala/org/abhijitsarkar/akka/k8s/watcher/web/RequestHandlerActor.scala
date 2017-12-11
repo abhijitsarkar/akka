@@ -6,10 +6,10 @@ import java.util.concurrent.{ConcurrentHashMap => JavaConcurrentMap}
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.softwaremill.tagging.@@
-import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.abhijitsarkar.akka.k8s.watcher.model.Stats
-import org.abhijitsarkar.akka.k8s.watcher.repository.Repository
+import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository
+import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
@@ -19,6 +19,7 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
   */
 trait Web
 
+// callbacks can't be serialized. can't use akka-persistence, sic
 class RequestHandlerActor(
                            k8SProperties: K8SProperties,
                            repositoryActor: ActorRef @@ Repository,
@@ -26,17 +27,17 @@ class RequestHandlerActor(
                          ) extends Actor with ActorLogging {
   type ChunkedResponse = (Int, List[(String, List[Event])], List[Stats] => Unit)
   type SimpleResponse = (String, Stats => Unit)
-  private val responseMap: ConcurrentMap[UUID, Either[ChunkedResponse, SimpleResponse]] =
-    (new JavaConcurrentMap[UUID, Either[ChunkedResponse, SimpleResponse]]()).asScala
+  private val responseMap: ConcurrentMap[String, Either[ChunkedResponse, SimpleResponse]] =
+    (new JavaConcurrentMap[String, Either[ChunkedResponse, SimpleResponse]]()).asScala
 
   override def receive = {
     case GetStatsForOneRequest(app, callback) => {
-      val requestId = UUID.randomUUID()
+      val requestId = UUID.randomUUID().toString
       responseMap.put(requestId, Right((app, callback)))
       repositoryActor ! FindByAppRequest(app, self, requestId)
     }
     case GetStatsRequest(callback) => {
-      val requestId = UUID.randomUUID()
+      val requestId = UUID.randomUUID().toString
       responseMap.put(requestId, Left((k8SProperties.apps.size, Nil, callback)))
 
       k8SProperties.apps.foreach(app => repositoryActor ! FindByAppRequest(app, self, requestId))

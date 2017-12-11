@@ -1,4 +1,4 @@
-package org.abhijitsarkar.akka.k8s.watcher.repository
+package org.abhijitsarkar.akka.k8s.watcher.persistence
 
 import java.util.UUID
 
@@ -46,17 +46,16 @@ class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory
   val testProbe = TestProbe()
   val testProbeActor = testProbe.ref
   var eventCollection: Future[BSONCollection] = _
+  val mongoProperties = MongoProperties(uri = s"mongodb://localhost:${Network.getFreeServerPort()}/test")
 
   override def beforeAll() {
-    val mongoProperties = MongoProperties(uri = s"mongodb://localhost:${Network.getFreeServerPort()}/test")
-
     EmbeddedMongoServer.start(mongoProperties.host, mongoProperties.port)
 
-    eventCollection = MongoCollectionFactory.createCollection(mongoProperties)
+    eventCollection = MongoCollectionFactory.collection(mongoProperties)
   }
 
   override def afterAll(): Unit = {
-    EmbeddedMongoServer.stop()
+    EmbeddedMongoServer.stop(mongoProperties.host, mongoProperties.port)
     shutdown(system)
   }
 
@@ -108,7 +107,7 @@ class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory
   it should "find a persisted event by app" in { e =>
     e.result shouldBe (1)
 
-    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, UUID.randomUUID())
+    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, UUID.randomUUID().toString)
 
     val timeout = 3.seconds
 
@@ -132,7 +131,7 @@ class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory
 
     x shouldBe (1)
 
-    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, UUID.randomUUID())
+    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, UUID.randomUUID.toString())
 
     testProbe.receiveOne(timeout) match {
       case FindByAppResponse(events, _) => {

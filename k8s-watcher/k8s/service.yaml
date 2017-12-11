@@ -5,10 +5,10 @@ metadata:
   labels:
     app: k8s-watcher
 spec:
-  clusterIP: None
   ports:
   - name: web
     port: 8080
+    nodePort: 31000
   selector:
     app: k8s-watcher
-  type: ClusterIP
+  type: NodePort

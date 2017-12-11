@@ -1,4 +1,4 @@
-package org.abhijitsarkar.akka.k8s.watcher.repository
+package org.abhijitsarkar.akka.k8s.watcher.persistence
 
 /**
   * @author Abhijit Sarkar
@@ -6,7 +6,7 @@ package org.abhijitsarkar.akka.k8s.watcher.repository
 
 import java.util.concurrent.{ConcurrentHashMap => JavaConcurrentMap}
 
-import de.flapdoodle.embed.mongo.config.{IMongodConfig, MongodConfigBuilder, Net}
+import de.flapdoodle.embed.mongo.config.{IMongodConfig, MongoCmdOptionsBuilder, MongodConfigBuilder, Net}
 import de.flapdoodle.embed.mongo.distribution.Version
 import de.flapdoodle.embed.mongo.{MongodExecutable, MongodProcess, MongodStarter}
 import de.flapdoodle.embed.process.runtime.Network
@@ -43,6 +43,7 @@ object EmbeddedMongoServer {
   private def mongodConfig(host: String, port: Int): IMongodConfig = new MongodConfigBuilder()
     .version(Version.Main.PRODUCTION)
     .net(new Net(host, port, Network.localhostIsIPv6))
+    .cmdOptions(new MongoCmdOptionsBuilder().useNoJournal(false).build())
     .build
 
   private def logProcessInfo(process: MongodProcess): MongodProcess = {
@@ -53,7 +54,7 @@ object EmbeddedMongoServer {
     process
   }
 
-  def stop(host: String = DefaultAddress.host, port: Int = DefaultAddress.port): Unit = {
+  def stop(host: String, port: Int): Unit = {
     instanceMap.remove(Address(host, port))
       .foreach { addr =>
         addr._1.stop()

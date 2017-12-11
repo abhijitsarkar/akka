@@ -1,0 +1,144 @@
+package org.abhijitsarkar.akka.k8s.watcher.web
+
+import java.time.temporal.ChronoUnit
+
+import akka.actor.{ActorRef, ActorSystem}
+import akka.stream.{ActorMaterializer, Materializer}
+import akka.testkit.{TestKit, TestProbe}
+import com.softwaremill.tagging._
+import com.typesafe.config.ConfigFactory
+import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
+import org.abhijitsarkar.akka.k8s.watcher.domain._
+import org.abhijitsarkar.akka.k8s.watcher.model.Stats
+import org.abhijitsarkar.akka.k8s.watcher.persistence.{EmbeddedMongoServer, MongoCollectionFactory, MongoProperties, Repository}
+import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
+import org.scalatest.{BeforeAndAfterAll, Matchers, fixture}
+import reactivemongo.api.collections.bson.BSONCollection
+import spray.json._
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
+
+/**
+  * @author Abhijit Sarkar
+  */
+class RequestHandlerActorSpec extends TestKit(
+  ActorSystem("test", ConfigFactory.load("application-test.conf")
+    .withFallback(ConfigFactory.load()))
+)
+  with fixture.FlatSpecLike
+  with Matchers
+  with BeforeAndAfterAll
+  with WebModule {
+  outer =>
+
+  override val actorModule = new ActorModule {
+    override val actorSystem: ActorSystem = outer.system
+
+    override implicit val materializer: Materializer = ActorMaterializer()
+
+    override implicit val executor: ExecutionContext = actorSystem.dispatcher
+  }
+
+  import actorModule._
+
+  val journalConfig = system.settings.config.getConfig("akka.contrib.persistence.mongodb.mongo")
+  val mongoProperties = MongoProperties(
+    uri = journalConfig.getString("mongouri"),
+    collection = journalConfig.getString("journal-collection")
+  )
+
+  override def beforeAll() {
+    if (mongoProperties.embedded) {
+      EmbeddedMongoServer.start(mongoProperties.host, mongoProperties.port)
+    }
+    val futureDb = MongoCollectionFactory.collection(mongoProperties).map(_.db)
+
+    futureDb.foreach { db =>
+      Seq(mongoProperties.collection, "akka_persistence_metadata").foreach { coll =>
+        val create = db.collection[BSONCollection](coll).create().recover {
+          case t if (t.getMessage.contains("already exists")) =>
+          case t => fail(t)
+        }
+        Await.result(create, 3.seconds)
+      }
+    }
+  }
+
+  override def afterAll(): Unit = {
+    MongoCollectionFactory.closeDriver()
+    if (mongoProperties.embedded) {
+      EmbeddedMongoServer.stop(mongoProperties.host, mongoProperties.port)
+    }
+
+    shutdown(system)
+  }
+
+  case class FixtureParam(testProbe: TestProbe, requestHandlerActor: ActorRef)
+
+  val event = io.Source.fromInputStream(getClass.getResourceAsStream("/event.json"))
+    .mkString
+    .parseJson
+    .convertTo[Event]
+
+  def withFixture(test: OneArgTest) = {
+    val testProbe = TestProbe()
+    val testProbeActor = testProbe.ref
+      .taggedWith[Repository]
+
+    lazy val requestHandlerActor = createRequestHandlerActor(testProbeActor)
+
+    val theFixture = FixtureParam(testProbe, requestHandlerActor)
+
+    withFixture(test.toNoArgTest(theFixture))
+  }
+
+  override val k8SProperties: K8SProperties = K8SProperties(apps = List("test1", "test2"))
+
+
+  val timeout = 3.seconds
+
+  "RequestHandlerActor" should "get apps" in { f =>
+    f.requestHandlerActor ! GetAppsRequest(apps => {
+      apps should contain theSameElementsAs k8SProperties.apps
+    })
+  }
+
+  "RequestHandlerActor" should "get stats for one app" in { f =>
+    val callback: Stats => Unit = (stats: Stats) => stats match {
+      case Stats(app, unit, events) if (app == "test" && unit == ChronoUnit.SECONDS && events.size == 1) =>
+      case _ => throw new IllegalArgumentException("No match.")
+    }
+
+    f.requestHandlerActor ! GetStatsForOneRequest("test", callback)
+    f.testProbe.receiveOne(timeout) match {
+      case FindByAppRequest(app, _, uuid) => {
+        app shouldBe ("test")
+        f.testProbe.send(f.requestHandlerActor, FindByAppResponse(List(event), uuid))
+      }
+      case _ => fail("Unknown event.")
+    }
+    f.testProbe.expectNoMessage(timeout)
+  }
+
+  "RequestHandlerActor" should "get stats for all apps" in { f =>
+    val callback: List[Stats] => Unit = (stats: List[Stats]) => stats match {
+      case Seq(Stats(app1, unit1, events1), Stats(app2, unit2, events2))
+        if (app1 == app2 == "test" && events1.size == 1 && events2.size == 1) => {}
+      case _ => throw new IllegalArgumentException("No match.")
+    }
+
+    f.requestHandlerActor ! GetStatsRequest(callback)
+
+    f.testProbe.receiveN(2, 5.seconds) match {
+      case Seq(FindByAppRequest(app1, _, uuid1), FindByAppRequest(app2, _, uuid2)) => {
+        List(app1, app2)
+          .foreach(app => app should (equal("test1") or equal("test2")))
+        f.testProbe.send(f.requestHandlerActor, FindByAppResponse(List(event), uuid2))
+        f.testProbe.send(f.requestHandlerActor, FindByAppResponse(List(event), uuid1))
+      }
+      case _ => fail("Unknown event.")
+    }
+    f.testProbe.expectNoMessage(timeout)
+  }
+}

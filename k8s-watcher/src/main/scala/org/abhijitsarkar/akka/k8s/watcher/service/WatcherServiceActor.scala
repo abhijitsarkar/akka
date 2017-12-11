@@ -5,7 +5,7 @@ import com.softwaremill.tagging.@@
 import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.abhijitsarkar.akka.k8s.watcher.client.HttpClient
 import org.abhijitsarkar.akka.k8s.watcher.domain._
-import org.abhijitsarkar.akka.k8s.watcher.repository.Repository
+import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository
 
 /**
   * @author Abhijit Sarkar

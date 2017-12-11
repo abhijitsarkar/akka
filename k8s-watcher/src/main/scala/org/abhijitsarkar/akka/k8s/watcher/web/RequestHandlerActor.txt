@@ -1,0 +1,130 @@
+package org.abhijitsarkar.akka.k8s.watcher.web
+
+import java.time.temporal.ChronoUnit.SECONDS
+import java.util.UUID
+
+import akka.actor.{ActorLogging, ActorRef}
+import akka.contrib.persistence.mongodb.MongoReadJournal
+import akka.persistence.query.scaladsl.CurrentEventsByTagQuery
+import akka.persistence.query.{EventEnvelope, Offset, PersistenceQuery}
+import akka.persistence.{PersistentActor, Recovery}
+import akka.stream.scaladsl.Sink
+import com.softwaremill.tagging.@@
+import org.abhijitsarkar.akka.k8s.watcher.domain._
+import org.abhijitsarkar.akka.k8s.watcher.model.Stats
+import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository
+import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
+
+import scala.concurrent.Future
+
+/**
+  * @author Abhijit Sarkar
+  */
+trait Web
+
+case class RequestState(requestId: String, request: Either[GetStatsRequest, GetStatsForOneRequest])
+
+case object Shutdown
+
+class RequestHandlerActor(
+                           k8SProperties: K8SProperties,
+                           repositoryActor: ActorRef @@ Repository,
+                           actorModule: ActorModule
+                         ) extends PersistentActor with ActorLogging {
+
+  import actorModule._
+
+  override def recovery = Recovery.none
+
+  override def receiveRecover: Receive = {
+    case _ =>
+  }
+
+  override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long): Unit = {
+    log.error(cause, "Rejected to persist event type [{}] with sequence number [{}] for persistenceId [{}] due to [{}].",
+      event.getClass.getName, seqNr, persistenceId, cause.getMessage)
+    // https://doc.akka.io/docs/akka/current/persistence.html?language=scala#safely-shutting-down-persistent-actors
+    self ! Shutdown
+  }
+
+  override def receiveCommand: Receive = {
+    case Shutdown => log.warning("Received shutdown message, stopping actor now!"); context.stop(self)
+    case x: GetStatsForOneRequest => {
+      val requestId = UUID.randomUUID().toString
+      persist(RequestState(requestId, Right(x))) { _ =>
+        repositoryActor ! FindByAppRequest(x.app, self, requestId)
+      }
+    }
+    case y: GetStatsRequest => {
+      val requestId = UUID.randomUUID().toString
+
+      persist(RequestState(requestId, Left(y))) { _ =>
+        k8SProperties.apps.foreach(app => repositoryActor ! FindByAppRequest(app, self, requestId))
+      }
+    }
+    case response: FindByAppResponse => {
+      val app: List[Event] => String = ev => ev
+        .find(_.`object`.app.isDefined)
+        .map(_.`object`.app.get)
+        .getOrElse("UNKNOWN")
+
+      val updatedList: (Seq[FindByAppResponse], List[Event]) => List[(String, List[Event])] = (list, events) => {
+        val y = list.map(x => (app(x.events), x.events)).toList
+
+        if (events.isEmpty) {
+          y
+        } else {
+          (app(events), events) :: y
+        }
+      }
+
+      val startupDurations = (events: List[Event]) => events.map(_.`object`.startupDuration(SECONDS))
+
+      val readJournal = PersistenceQuery(actorSystem)
+        .readJournalFor[CurrentEventsByTagQuery](MongoReadJournal.Identifier)
+      val result: Future[Seq[EventEnvelope]] = readJournal
+        .currentEventsByTag(response.uuid, Offset.noOffset)
+        .runWith(Sink.seq)
+
+      result.foreach { all =>
+        val m: Map[String, Seq[Any]] = all.map(_.event).groupBy(_.getClass.getSimpleName)
+        val maybeReq = m.get("RequestState")
+
+        if (maybeReq.isEmpty) {
+          log.error("Request not found in journal. Tough luck!")
+        } else {
+          val req = maybeReq.get.head.asInstanceOf[RequestState]
+
+          val res = m.get("FindByAppResponse")
+            .getOrElse(Seq.empty)
+            .map(_.asInstanceOf[FindByAppResponse])
+
+          (req.request, res.size, k8SProperties.apps.size) match {
+            case (Right(x), _, _) => {
+              log.debug("case {} - gotcha!", x.getClass.getSimpleName)
+              x.callback(Stats(x.app, SECONDS, startupDurations(response.events)))
+            }
+            case (Left(y), a, b) if (a == b) => {
+              log.debug("case {} - got 'em all!", y.getClass.getSimpleName)
+              // assuming we always get a response :-)
+              y.callback(updatedList(res, response.events)
+                .map(x => Stats(x._1, SECONDS, startupDurations(x._2))))
+            }
+            case (Left(y), _, _) => {
+              log.debug("case {} - more to come!", y.getClass.getSimpleName)
+
+              persist(req) { _ => }
+              (response +: res).foreach(persist(_) { _ => })
+            }
+          }
+        }
+      }
+    }
+    case GetAppsRequest(callback) => {
+      callback(k8SProperties.apps)
+    }
+    case _ => log.warning("Unknown message type")
+  }
+
+  override def persistenceId: String = "request-handler-actor"
+}

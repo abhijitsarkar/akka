@@ -1,4 +1,4 @@
-package org.abhijitsarkar.akka.k8s.watcher.repository
+package org.abhijitsarkar.akka.k8s.watcher.persistence
 
 import akka.actor.Props
 import com.softwaremill.macwire._

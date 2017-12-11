@@ -8,9 +8,9 @@ import akka.http.scaladsl.model.StatusCodes.OK
 import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpRequest, _}
+import akka.http.scaladsl.settings.ConnectionPoolSettings
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorAttributes
-import akka.stream.scaladsl.{Flow, Framing, Source}
+import akka.stream.scaladsl.{Flow, Framing, MergeHub, Sink, Source}
 import akka.util.ByteString
 import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
 import org.abhijitsarkar.akka.k8s.watcher.domain.{Event, GetEventsRequest, GetEventsResponse}
@@ -34,16 +34,10 @@ class K8SClientActor(
 
   val timeout = 10.seconds
 
-  val http = if (k8SProperties.baseUrl.startsWith("https")) {
-    if (k8SProperties.certFile.isEmpty) {
-      log.error("Endpoint is secured, but certFile isn't defined. Stopping system.")
-      Await.result(actorSystem.terminate(), timeout)
-      null // the compiler made me do it
-    } else {
-      SslContextFactory.createClientSslContext(k8SProperties.certFile.get)
-    }
-  } else {
-    Http()
+  val http = if (k8SProperties.baseUrl.startsWith("https")
+    && k8SProperties.certFile.isEmpty) {
+    log.error("Endpoint is secured, but certFile isn't defined. Stopping system.")
+    Await.result(actorSystem.terminate(), timeout)
   }
 
   private val authToken: String = {
@@ -59,31 +53,13 @@ class K8SClientActor(
     Await.result(actorSystem.terminate(), timeout)
   }
 
+  val origSettings = ConnectionPoolSettings(context.system.settings.config)
+  val newSettings = origSettings//.withIdleTimeout(origSettings.idleTimeout)
+
   private type RequestPair = (HttpRequest, NotUsed)
   private type ResponsePair = (Try[HttpResponse], NotUsed)
-  private lazy val poolFlow: Flow[RequestPair, ResponsePair, _] =
-    http
-      .cachedHostConnectionPool[NotUsed](
-      host = k8SProperties.host,
-      port = k8SProperties.port
-    )
-
-  //  private lazy val connectionFlow: Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]] =
-  //    Http().outgoingConnection(host = k8SProperties.host, port = k8SProperties.port)
-  //
-  //  private val responseValidationFlow = (response: HttpResponse) => {
-  //    response.entity.dataBytes
-  //      .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = 8096))
-  //      .mapAsyncUnordered(Runtime.getRuntime.availableProcessors()) { data =>
-  //        if (response.status == OK) {
-  //          Unmarshal(data).to[Event]
-  //            .map(Right(_))
-  //        } else {
-  //          Future.successful(data.utf8String)
-  //            .map(Left(_))
-  //        }
-  //      }
-  //  }
+  // super pool encrypts the connection by looking at the protocol
+  private lazy val poolFlow: Flow[RequestPair, ResponsePair, _] = Http().superPool[NotUsed](settings = newSettings)
 
   private val responseValidationFlow = (responsePair: ResponsePair) => responsePair match {
     case (Success(response), _) => {
@@ -99,18 +75,6 @@ class K8SClientActor(
               .map(Left(_))
           }
         }
-      //        .map(EitherT.fromEither[Future](_))
-
-      //          val e: Future[Either[String, Event]] = response.entity.toStrict(timeout)
-      //            .flatMap { strict =>
-      //              if (response.status == OK) {
-      //                val event = Unmarshal(strict).to[Event]
-      //                event.foreach(x => log.debug("Received event: {}.", x))
-      //                event.map(Right(_))
-      //              } else {
-      //                Unmarshal(strict).to[String].map(Left(_))
-      //              }
-      //            }
     }
     case (Failure(t), _) => {
       Source.single(Left(t.getMessage))
@@ -120,6 +84,7 @@ class K8SClientActor(
   val dispatchers = context.system.dispatchers
   val blockingDispatcher = "blocking-dispatcher"
 
+  // https://github.com/akka/akka-http/issues/63
   override def receive = {
     case GetEventsRequest(apps, replyTo) => {
       val request: String => HttpRequest = (app: String) => RequestBuilding.Get(Uri(k8SProperties.baseUrl)
@@ -136,19 +101,16 @@ class K8SClientActor(
           Authorization(OAuth2BearerToken(authToken))
         )
 
-      val graph = Source(apps)
-      val graph1 = (if (dispatchers.hasDispatcher(blockingDispatcher)) {
-        graph.withAttributes(ActorAttributes.dispatcher(blockingDispatcher))
-      } else {
-        log.warning("Dispatcher '{}' is not found, falling back to default.", blockingDispatcher)
-        graph
-      })
+      // https://doc.akka.io/docs/akka/current/stream/stream-dynamic.html
+      val sink = Sink.foreach[Either[String, Event]](replyTo ! GetEventsResponse(_))
+      val merge = MergeHub.source[Either[String, Event]](perProducerBufferSize = 16).to(sink)
+      val consumer = merge.run()
+
+      Source(apps)
         .map(app => (request(app), NotUsed))
         .via(poolFlow)
-        .flatMapMerge(apps.size, responseValidationFlow)
-      val done = graph1.runForeach(replyTo ! GetEventsResponse(_))
-
-      Await.result(done, Duration.Inf)
+        .flatMapMerge(16, responseValidationFlow)
+        .runWith(consumer)
     }
   }
 }

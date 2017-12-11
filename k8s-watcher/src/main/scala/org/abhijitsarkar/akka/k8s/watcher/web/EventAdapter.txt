@@ -1,0 +1,17 @@
+package org.abhijitsarkar.akka.k8s.watcher.web
+
+import akka.persistence.journal.{Tagged, WriteEventAdapter}
+import org.abhijitsarkar.akka.k8s.watcher.domain.FindByAppResponse
+import org.abhijitsarkar.akka.k8s.watcher.web.RequestState
+
+/**
+  * @author Abhijit Sarkar
+  */
+class EventAdapter extends WriteEventAdapter {
+  override def manifest(event: Any): String = ""
+
+  override def toJournal(event: Any): Any = event match {
+    case req: RequestState => Tagged(req, Set(req.requestId))
+    case res: FindByAppResponse => Tagged(res, Set(res.uuid))
+  }
+}

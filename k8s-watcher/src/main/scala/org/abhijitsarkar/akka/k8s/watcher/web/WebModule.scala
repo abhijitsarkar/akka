@@ -3,7 +3,7 @@ package org.abhijitsarkar.akka.k8s.watcher.web
 import akka.actor.{ActorRef, Props}
 import com.softwaremill.macwire.wire
 import com.softwaremill.tagging.{@@, _}
-import org.abhijitsarkar.akka.k8s.watcher.repository.Repository
+import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository
 import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 
 /**

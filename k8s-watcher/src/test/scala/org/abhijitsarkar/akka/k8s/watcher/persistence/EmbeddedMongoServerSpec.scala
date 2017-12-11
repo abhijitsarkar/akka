@@ -1,4 +1,4 @@
-package org.abhijitsarkar.akka.k8s.watcher.repository
+package org.abhijitsarkar.akka.k8s.watcher.persistence
 
 import de.flapdoodle.embed.process.runtime.Network
 import org.scalatest.{FlatSpec, Matchers}
@@ -16,7 +16,7 @@ class EmbeddedMongoServerSpec extends FlatSpec
       .map(_.getProcessId)
       .toSet
 
-    EmbeddedMongoServer.stop()
+    EmbeddedMongoServer.stop("localhost", port)
 
     pids.size shouldBe (1)
   }
