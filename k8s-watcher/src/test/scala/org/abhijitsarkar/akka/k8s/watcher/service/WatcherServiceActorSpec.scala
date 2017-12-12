@@ -7,11 +7,11 @@ import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{TestKit, TestProbe}
 import com.softwaremill.tagging._
 import com.typesafe.config.ConfigFactory
-import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.abhijitsarkar.akka.k8s.watcher.client.HttpClient
 import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
 import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository
+import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.scalatest._
 import spray.json._
 
@@ -21,7 +21,8 @@ import scala.concurrent.duration._
 /**
   * @author Abhijit Sarkar
   */
-class WatcherServiceActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load("application-test.conf")))
+class WatcherServiceActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load("application-test.conf")
+  .withFallback(ConfigFactory.load())))
   with FlatSpecLike
   with Matchers
   with BeforeAndAfterAll

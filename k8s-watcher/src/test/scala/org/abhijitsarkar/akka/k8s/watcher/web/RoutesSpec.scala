@@ -2,19 +2,17 @@ package org.abhijitsarkar.akka.k8s.watcher.web
 
 import java.time.temporal.ChronoUnit
 
-import akka.actor.ActorSystem
+import akka.actor.ActorRef
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
-import akka.stream.Materializer
 import akka.testkit.{TestProbe, _}
 import com.softwaremill.tagging._
-import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
+import com.typesafe.config.ConfigFactory
 import org.abhijitsarkar.akka.k8s.watcher.domain.{GetAppsRequest, GetStatsForOneRequest, GetStatsRequest}
 import org.abhijitsarkar.akka.k8s.watcher.model.Stats
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.abhijitsarkar.akka.k8s.watcher.model.StatsJsonProtocol._
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
 
 /**
   * @author Abhijit Sarkar
@@ -22,75 +20,63 @@ import scala.concurrent.{Await, ExecutionContext}
 class RoutesSpec extends FlatSpecLike
   with Matchers
   with ScalatestRouteTest
-  with WebModule
   with BeforeAndAfterAll
   with Routes {
-  outer =>
 
-  override def afterAll(): Unit = {
-    Await.result(system.terminate(), 3.seconds)
-  }
-
-  override val actorModule = new ActorModule {
-    override val actorSystem: ActorSystem = outer.system
-
-    override val materializer: Materializer = outer.materializer
-
-    override val executor: ExecutionContext = outer.executor
-  }
-
-  override def k8SProperties = new K8SProperties(apps = List("test"))
+  override def testConfig = ConfigFactory.load("application-test.conf")
+    .withFallback(ConfigFactory.load())
 
   val testProbe = TestProbe()
   val testProbeActor = testProbe.ref
     .taggedWith[Web]
 
-  val timeout = 1.minute
+  val handler = route(testProbeActor)
+  val timeout = 30.seconds
+  implicit val routeTestTimout = RouteTestTimeout(timeout.dilated)
 
-  ignore should "respond to get apps request" in {
-    implicit val routeTestTimout = RouteTestTimeout(timeout.dilated)
-    Get("/apps") ~> route(testProbeActor) ~> check {
-
-      testProbe.receiveOne(timeout) match {
-        case GetAppsRequest(callback) => {
-          callback(k8SProperties.apps)
-        }
-      }
-      entityAs[List[String]] should contain("test")
-    }
-    testProbe.expectNoMessage(timeout)
+  override def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system, 3.seconds, false)
   }
 
-  ignore should "respond to get stats request for all apps" in {
-    implicit val routeTestTimout = RouteTestTimeout(timeout.dilated)
-    val app = "test"
-    Get("/apps/stats") ~> route(testProbeActor) ~> check {
+  val app = "test"
 
-      testProbe.receiveOne(timeout) match {
-        case GetStatsRequest(callback) => {
-          callback(List(Stats(app, ChronoUnit.SECONDS, Nil)))
-        }
-        case other => fail(s"Unexpected message $other.")
+  // Putting testProbe inside check hangs forever probably because it creates a deadlock; test waits for callback
+  // to be called for the body to execute, and callback in't called until the body is executed.
+  "Routes" should "respond to get apps request" in {
+    testProbe.setAutoPilot((_: ActorRef, msg: Any) => {
+      msg match {
+        case GetAppsRequest(callback) => callback(List(app)); TestActor.KeepRunning
+        case _ => TestActor.NoAutoPilot
       }
-      entityAs[List[Stats]].size shouldBe (1)
-      entityAs[List[Stats]].head.app shouldBe (app)
+    })
+
+    Get("/apps") ~> handler ~> check {
+      entityAs[List[String]] should contain(app)
     }
-    testProbe.expectNoMessage(timeout)
   }
 
-  ignore should "respond to get stats request for one app" in {
-    implicit val routeTestTimout = RouteTestTimeout(timeout.dilated)
-    val app = "test"
-    Get(s"/apps/$app/stats") ~> route(testProbeActor) ~> check {
-
-      testProbe.receiveOne(timeout) match {
-        case GetStatsForOneRequest(app, callback) => {
-          callback(Stats(app, ChronoUnit.SECONDS, Nil))
-        }
-        case other => fail(s"Unexpected message $other.")
+  it should "respond to get stats request for all apps" in {
+    testProbe.setAutoPilot((_: ActorRef, msg: Any) => {
+      msg match {
+        case GetStatsRequest(callback) => callback(List(Stats(app, ChronoUnit.SECONDS, Nil))); TestActor.KeepRunning
+        case _ => TestActor.NoAutoPilot
       }
+    })
+
+    Get("/apps/stats") ~> handler ~> check {
+      entityAs[List[Stats]].map(_.app) should contain(app)
+    }
+  }
+
+  it should "respond to get stats request for one app" in {
+    testProbe.setAutoPilot((_: ActorRef, msg: Any) => {
+      msg match {
+        case GetStatsForOneRequest(app, callback) => callback(Stats(app, ChronoUnit.SECONDS, Nil)); TestActor.KeepRunning
+        case _ => TestActor.NoAutoPilot
+      }
+    })
+    Get(s"/apps/$app/stats") ~> handler ~> check {
       entityAs[Stats].app shouldBe (app)
     }
-    testProbe.expectNoMessage(timeout)
   }
 }

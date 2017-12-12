@@ -9,8 +9,8 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.ConfigFactory
-import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.abhijitsarkar.akka.k8s.watcher.domain.{EventType, GetEventsRequest, GetEventsResponse}
+import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 import org.scalatest._
 
 import scala.concurrent.ExecutionContext
@@ -19,7 +19,8 @@ import scala.concurrent.duration._
 /**
   * @author Abhijit Sarkar
   */
-class K8SClientActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load("application-test.conf")))
+class K8SClientActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load("application-test.conf")
+  .withFallback(ConfigFactory.load())))
   with FlatSpecLike
   with Matchers
   with BeforeAndAfterAll

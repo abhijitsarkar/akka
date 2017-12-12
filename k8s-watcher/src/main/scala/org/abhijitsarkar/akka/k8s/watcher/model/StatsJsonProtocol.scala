@@ -1,5 +1,6 @@
 package org.abhijitsarkar.akka.k8s.watcher.model
 
+import java.time.temporal.ChronoUnit
 import java.util.LongSummaryStatistics
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -30,7 +31,15 @@ object StatsJsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       "summary" -> obj.summary.toJson
     )
 
-    override def read(json: JsValue): Stats = ???
+    override def read(json: JsValue): Stats = json.asJsObject.getFields("app", "unit", "startupDurations") match {
+      case Seq(
+      JsString(app),
+      JsString(unit),
+      JsArray(startupDurations)
+      ) => Stats(
+        app, ChronoUnit.valueOf(unit), startupDurations.map(_.convertTo[Long]).toList
+      )
+    }
   }
 
 }

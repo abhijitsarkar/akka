@@ -21,7 +21,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /**
   * @author Abhijit Sarkar
   */
-class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load("application-test.conf")))
+class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load("application-test.conf")
+  .withFallback(ConfigFactory.load())))
   with fixture.FlatSpecLike
   with Matchers
   with BeforeAndAfterAll
