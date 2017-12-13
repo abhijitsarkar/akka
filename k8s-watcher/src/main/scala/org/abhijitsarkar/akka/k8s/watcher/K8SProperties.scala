@@ -8,7 +8,6 @@ import java.net.URI
 case class K8SProperties(
                           baseUrl: String = "http://localhost:9000",
                           namespace: String = "default",
-                          certFile: Option[String] = None,
                           apiTokenFile: Option[String] = None,
                           apiToken: Option[String] = None,
                           apps: List[String] = Nil

@@ -32,14 +32,6 @@ class K8SClientActor(
 
   import actorModule._
 
-  val timeout = 10.seconds
-
-  val http = if (k8SProperties.baseUrl.startsWith("https")
-    && k8SProperties.certFile.isEmpty) {
-    log.error("Endpoint is secured, but certFile isn't defined. Stopping system.")
-    Await.result(actorSystem.terminate(), timeout)
-  }
-
   private val authToken: String = {
     k8SProperties.apiToken
       .orElse(k8SProperties.apiTokenFile
@@ -48,13 +40,14 @@ class K8SClientActor(
       .getOrElse("")
   }
 
+  val timeout = 10.seconds
   if (authToken.isEmpty) {
     log.error("One of apiToken and apiTokenFile must be defined. Stopping system.")
     Await.result(actorSystem.terminate(), timeout)
   }
 
   val origSettings = ConnectionPoolSettings(context.system.settings.config)
-  val newSettings = origSettings//.withIdleTimeout(origSettings.idleTimeout)
+  val newSettings = origSettings //.withIdleTimeout(origSettings.idleTimeout)
 
   private type RequestPair = (HttpRequest, NotUsed)
   private type ResponsePair = (Try[HttpResponse], NotUsed)

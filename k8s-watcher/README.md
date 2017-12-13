@@ -1,14 +1,19 @@
 To run one test class
+
 ```
 sbt 'testOnly *.MongoRepositoryActorSpec'
 ```
 
+**Mongo**
+
 ```
-> db.<database/collection>.drop()
+> db.[database or collection].drop()
 > db['test-journal'].find({}) # hyphenated-name
 
 ```
 
+**wget**
+
 ```
-kubectl cp default/k8s-watcher-65c649754c-w2c6f:/tmp/app/reference.conf ./reference.conf
+kubectl exec -it <pod> -- wget -q -O- http://localhost:8080/apps/stats
 ```
