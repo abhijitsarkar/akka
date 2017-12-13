@@ -10,8 +10,12 @@ import spray.json.{DefaultJsonProtocol, DeserializationException, JsString, JsVa
 /**
   * @author Abhijit Sarkar
   */
+// https://github.com/akka/akka-http/blob/master/docs/src/test/scala/docs/http/scaladsl/server/directives/JsonStreamingFullExamples.scala
+// http://malaw.ski/2016/04/10/hakk-the-planet-implementing-akka-http-marshallers/
+object DomainObjectsJsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
 
-object EventJsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+  implicit val operationStatusConverter = new EnumJsonConverter(OperationStatus)
+  implicit val statusFormat = jsonFormat4(Status)
 
   implicit object InstantJsonFormat extends RootJsonFormat[Instant] {
     override def write(obj: Instant): JsValue = DateTimeFormatter.ISO_INSTANT

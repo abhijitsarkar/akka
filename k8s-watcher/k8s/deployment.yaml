@@ -30,7 +30,13 @@ spec:
           value: /var/run/secrets/kubernetes.io/serviceaccount/token
         - name: K8S_APPS
           value: k8s-watcher-test
+        - name: MONGO_EMBEDDED
+          value: "false"
         - name: K8S_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+      - name: mongo
+        image: mongo:3.6.0-jessie
+        ports:
+        - containerPort: 27017

@@ -10,7 +10,10 @@ case class K8SProperties(
                           namespace: String = "default",
                           apiTokenFile: Option[String] = None,
                           apiToken: Option[String] = None,
-                          apps: List[String] = Nil
+                          apps: List[String] = Nil,
+                          deletionEnabled: Boolean = true,
+                          deletionInitialDelayMin: Long = 1L,
+                          deletionIntervalMin: Long = 2L
                         ) {
   private val u = URI.create(baseUrl)
 

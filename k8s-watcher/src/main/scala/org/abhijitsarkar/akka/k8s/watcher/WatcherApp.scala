@@ -51,15 +51,15 @@ object WatcherApp extends HttpApp with App with ClientModule with RepositoryModu
   implicitly[ActorSystem].registerOnTermination(() => MongoCollectionFactory.closeDriver())
 
   override val eventCollection = MongoCollectionFactory.collection(mongoProperties)
-//    .andThen {
-//      case Success(coll) => {
-//        val create: Future[Unit] = coll.db.collection[BSONCollection]("akka_persistence_metadata").create().recover {
-//          case t if (t.getMessage.contains("already exists")) =>
-//          case t => log.error("Failed to create Akka Persistence collection.", t)
-//        }
-//        Await.result(create, 3.seconds)
-//      }
-//    }
+  //    .andThen {
+  //      case Success(coll) => {
+  //        val create: Future[Unit] = coll.db.collection[BSONCollection]("akka_persistence_metadata").create().recover {
+  //          case t if (t.getMessage.contains("already exists")) =>
+  //          case t => log.error("Failed to create Akka Persistence collection.", t)
+  //        }
+  //        Await.result(create, 3.seconds)
+  //      }
+  //    }
 
   lazy val repositoryActor = createRepositoryActor()
     .taggedWith[Repository]

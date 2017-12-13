@@ -5,10 +5,11 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{TestKit, TestProbe}
+import com.softwaremill.quicklens._
 import com.typesafe.config.ConfigFactory
 import de.flapdoodle.embed.process.runtime.Network
 import org.abhijitsarkar.akka.k8s.watcher.ActorModule
-import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
+import org.abhijitsarkar.akka.k8s.watcher.domain.DomainObjectsJsonProtocol._
 import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.scalatest._
 import reactivemongo.api.collections.bson.BSONCollection
@@ -108,7 +109,7 @@ class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory
   it should "find a persisted event by app" in { e =>
     e.result shouldBe (1)
 
-    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, UUID.randomUUID().toString)
+    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, "")
 
     val timeout = 3.seconds
 
@@ -132,11 +133,45 @@ class MongoRepositoryActorSpec extends TestKit(ActorSystem("test", ConfigFactory
 
     x shouldBe (1)
 
-    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, UUID.randomUUID.toString())
+    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, "")
 
     testProbe.receiveOne(timeout) match {
       case FindByAppResponse(events, _) => {
         events.size shouldBe (1)
+      }
+    }
+  }
+
+  it should "limit find results to 25 documents" in { e =>
+    //    val pod: Lens[Event, Pod] = GenLens[Event](_.`object`)
+    //    val metadata: Lens[Pod, Metadata] = GenLens[Pod](_.metadata)
+    //    val labels: Lens[Metadata, Map[String, String]] = GenLens[Metadata](_.labels)
+
+    (1 to 30)
+      .map { _ =>
+        // lens FTW
+        event.modify(_.`object`.metadata.uid).using(_ => UUID.randomUUID.toString())
+        //        event.copy(
+        //          `object` = event.`object`.copy(
+        //            metadata = event.`object`.metadata.copy(
+        //              uid = UUID.randomUUID.toString()
+        //            )
+        //          )
+        //        )
+      }
+      .foreach(mongoRepositoryActor ! PersistEventRequest(_, testProbeActor))
+
+    mongoRepositoryActor ! FindByAppRequest(event.`object`.metadata.labels("app"), testProbeActor, "")
+
+    val timeout = 5.seconds
+
+    testProbe.receiveN(30, timeout) match {
+      case ack: Vector[_] => ack should have length (30)
+    }
+
+    testProbe.receiveOne(timeout) match {
+      case FindByAppResponse(events, _) => {
+        events should have length (25)
       }
     }
   }

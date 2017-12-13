@@ -7,7 +7,7 @@ import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{TestKit, TestProbe}
 import com.softwaremill.tagging._
 import com.typesafe.config.ConfigFactory
-import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
+import org.abhijitsarkar.akka.k8s.watcher.domain.DomainObjectsJsonProtocol._
 import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.abhijitsarkar.akka.k8s.watcher.model.Stats
 import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository

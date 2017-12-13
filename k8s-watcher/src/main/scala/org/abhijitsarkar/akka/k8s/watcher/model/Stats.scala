@@ -12,10 +12,16 @@ import scala.collection.JavaConverters._
 case class Stats(
                   app: String,
                   unit: ChronoUnit,
-                  startupDurations: List[Long]
+                  // The private keyword keeps Scala from exposing that field to other classes,
+                  // and the var lets the value of the field be changed.
+                  private var _startupDurations: List[Long]
                 ) {
+  def startupDurations = _startupDurations.sorted
+
+  def startupDurations_=(durations: List[Long]) = _startupDurations = durations
+
   val summary: LongSummaryStatistics = {
-    startupDurations.asJava.stream()
+    _startupDurations.asJava.stream()
       .collect(summarizingLong(identity[Long]))
   }
 }

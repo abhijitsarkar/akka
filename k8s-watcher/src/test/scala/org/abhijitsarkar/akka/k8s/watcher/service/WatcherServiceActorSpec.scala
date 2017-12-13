@@ -5,10 +5,11 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.testkit.{TestKit, TestProbe}
+import com.softwaremill.quicklens._
 import com.softwaremill.tagging._
 import com.typesafe.config.ConfigFactory
 import org.abhijitsarkar.akka.k8s.watcher.client.HttpClient
-import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
+import org.abhijitsarkar.akka.k8s.watcher.domain.DomainObjectsJsonProtocol._
 import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.abhijitsarkar.akka.k8s.watcher.persistence.Repository
 import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
@@ -82,16 +83,12 @@ class WatcherServiceActorSpec extends TestKit(ActorSystem("test", ConfigFactory.
   }
 
   it should "not persist not ready events" in {
-    val podStatus = event.`object`.status.copy(conditions = List(PodCondition(
+    val event2: Event = event.modify(_.`object`.status.conditions).using(_ => List(PodCondition(
       PodConditionStatusType.Initialized,
       PodConditionStatus.True,
       None,
       Instant.now()
     )))
-
-    val pod: Pod = event.`object`.copy(status = podStatus)
-
-    val event2: Event = event.copy(`object` = pod)
 
     watcherServiceActor ! GetEventsResponse(Right(event2))
 

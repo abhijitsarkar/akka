@@ -4,6 +4,7 @@ import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
 
 import org.abhijitsarkar.akka.k8s.watcher.domain.EventType.EventType
+import org.abhijitsarkar.akka.k8s.watcher.domain.OperationStatus.OperationStatus
 import org.abhijitsarkar.akka.k8s.watcher.domain.PodConditionStatus.PodConditionStatus
 import org.abhijitsarkar.akka.k8s.watcher.domain.PodConditionStatusType.{Initialized, PodConditionStatusType, Ready}
 import org.abhijitsarkar.akka.k8s.watcher.domain.PodPhase.PodPhase
@@ -13,6 +14,18 @@ import scala.collection.immutable.Map
 /**
   * @author Abhijit Sarkar
   */
+case class Status(
+                   code: Int,
+                   message: String,
+                   reason: Option[String],
+                   status: OperationStatus
+                 )
+
+object OperationStatus extends Enumeration {
+  type OperationStatus = Value
+  val Success, Failure = Value
+}
+
 case class Event(
                   `type`: EventType,
                   `object`: Pod

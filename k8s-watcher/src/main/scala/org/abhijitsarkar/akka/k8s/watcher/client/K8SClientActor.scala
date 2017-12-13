@@ -4,17 +4,19 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.sprayJsonByteStringUnmarshaller
 import akka.http.scaladsl.model.StatusCodes.OK
 import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpRequest, _}
 import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, Unmarshal}
 import akka.stream.scaladsl.{Flow, Framing, MergeHub, Sink, Source}
 import akka.util.ByteString
-import org.abhijitsarkar.akka.k8s.watcher.domain.EventJsonProtocol._
-import org.abhijitsarkar.akka.k8s.watcher.domain.{Event, GetEventsRequest, GetEventsResponse}
+import org.abhijitsarkar.akka.k8s.watcher.domain.DomainObjectsJsonProtocol._
+import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
+import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -54,17 +56,19 @@ class K8SClientActor(
   // super pool encrypts the connection by looking at the protocol
   private lazy val poolFlow: Flow[RequestPair, ResponsePair, _] = Http().superPool[NotUsed](settings = newSettings)
 
-  private val responseValidationFlow = (responsePair: ResponsePair) => responsePair match {
+  private def responseValidationFlow[T](responsePair: ResponsePair)(implicit evidence: FromByteStringUnmarshaller[T]) = responsePair match {
     case (Success(response), _) => {
       response.entity.dataBytes
-        .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = 8096))
-        .mapAsyncUnordered(Runtime.getRuntime.availableProcessors()) { data =>
+        .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = 8192))
+        .mapAsyncUnordered(Runtime.getRuntime.availableProcessors()) { body =>
           if (response.status == OK) {
-            val event: Future[Event] = Unmarshal(data).to[Event]
-            event.foreach(x => log.debug("Received event: {}.", x))
-            event.map(Right(_))
+            val obj: Future[T] = Unmarshal(body).to[T]
+            obj.foreach(x => log.debug("Received {}: {}.", x.getClass.getSimpleName, x))
+            obj.map(Right(_))
           } else {
-            Future.successful(data.utf8String)
+            val reason = body.utf8String
+            log.error("Non 200 response status: {}, body: {}.", response.status.intValue(), reason)
+            Future.successful(reason)
               .map(Left(_))
           }
         }
@@ -102,7 +106,39 @@ class K8SClientActor(
       Source(apps)
         .map(app => (request(app), NotUsed))
         .via(poolFlow)
-        .flatMapMerge(16, responseValidationFlow)
+        .flatMapMerge(16, responseValidationFlow[Event])
+        .runWith(consumer)
+    }
+
+    case DeletePodsRequest(apps, replyTo) => {
+      val request: String => HttpRequest = (app: String) => RequestBuilding.Delete(Uri(k8SProperties.baseUrl)
+        .withPath(Path(s"/api/v1/namespaces/${k8SProperties.namespace}/pods"))
+        .withQuery(Query(Map(
+          "labelSelector" -> s"app=$app",
+          "includeUninitialized" -> "false",
+          "pretty" -> "false"
+        )))
+      )
+        .withHeaders(
+          Accept(MediaRange(MediaTypes.`application/json`)),
+          Authorization(OAuth2BearerToken(authToken))
+        )
+
+      // https://doc.akka.io/docs/akka/current/stream/stream-dynamic.html
+      val sink = Sink.foreach[Option[Status]](replyTo ! DeletePodsResponse(_))
+      val merge = MergeHub.source[Option[Status]](perProducerBufferSize = 16).to(sink)
+      val consumer = merge.run()
+
+      Source(apps)
+        .map(app => (request(app), NotUsed))
+        .via(poolFlow)
+        .flatMapMerge(16, responseValidationFlow[ByteString])
+        .map {
+          _ match {
+            case Left(y) => Some(y.parseJson.convertTo[Status])
+            case _ => None
+          }
+        }
         .runWith(consumer)
     }
   }

@@ -12,12 +12,6 @@ id=$(docker images --filter=reference='*/'"$app"':*' --format '{{.ID}}')
 
 if [ ! -z $id ]; then
     docker rmi -f $id
-
-    while (($? > 0)); do
-        printf "Docker image in use. Going to sleep.\n"
-        sleep 2
-        status=$(docker rmi -f $id)
-    done
 fi
 
 sbt clean docker:publishLocal && \
