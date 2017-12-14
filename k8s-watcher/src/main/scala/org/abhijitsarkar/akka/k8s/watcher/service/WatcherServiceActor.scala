@@ -22,7 +22,6 @@ class WatcherServiceActor(
   override def preStart(): Unit = {
     super.preStart()
 
-    import actorModule.executor
     if (k8SProperties.deletionEnabled) {
       log.info("Scheduling deletion of apps beginning after: {} min and thereafter every: {} min.",
         k8SProperties.deletionInitialDelayMin, k8SProperties.deletionIntervalMin
@@ -31,7 +30,7 @@ class WatcherServiceActor(
         k8SProperties.deletionInitialDelayMin.minutes,
         k8SProperties.deletionIntervalMin.minutes,
         httpClientActor,
-        DeletePodsRequest(k8SProperties.apps, self))
+        DeletePodsRequest(k8SProperties.apps, self))(actorModule.executor)
     }
   }
 

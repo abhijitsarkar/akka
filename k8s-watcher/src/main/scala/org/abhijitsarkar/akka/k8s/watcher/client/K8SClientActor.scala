@@ -10,13 +10,12 @@ import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpRequest, _}
 import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, Unmarshal}
+import akka.http.scaladsl.unmarshalling.{FromByteStringUnmarshaller, Unmarshal, Unmarshaller}
 import akka.stream.scaladsl.{Flow, Framing, MergeHub, Sink, Source}
 import akka.util.ByteString
 import org.abhijitsarkar.akka.k8s.watcher.domain.DomainObjectsJsonProtocol._
 import org.abhijitsarkar.akka.k8s.watcher.domain._
 import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
-import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -56,30 +55,31 @@ class K8SClientActor(
   // super pool encrypts the connection by looking at the protocol
   private lazy val poolFlow: Flow[RequestPair, ResponsePair, _] = Http().superPool[NotUsed](settings = newSettings)
 
-  private def responseValidationFlow[T](responsePair: ResponsePair)(implicit evidence: FromByteStringUnmarshaller[T]) = responsePair match {
-    case (Success(response), _) => {
-      response.entity.dataBytes
-        .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = 8192))
-        .mapAsyncUnordered(Runtime.getRuntime.availableProcessors()) { body =>
-          if (response.status == OK) {
-            val obj: Future[T] = Unmarshal(body).to[T]
-            obj.foreach(x => log.debug("Received {}: {}.", x.getClass.getSimpleName, x))
-            obj.map(Right(_))
-          } else {
-            val reason = body.utf8String
-            log.error("Non 200 response status: {}, body: {}.", response.status.intValue(), reason)
-            Future.successful(reason)
-              .map(Left(_))
+  private def responseValidationFlow[L, R](responsePair: ResponsePair)(
+    implicit ev1: FromByteStringUnmarshaller[L], ev2: FromByteStringUnmarshaller[R]
+  ): Source[Either[L, R], Any] = {
+    responsePair match {
+      case (Success(response), _) => {
+        response.entity.dataBytes
+          .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = 8192))
+          .mapAsyncUnordered(Runtime.getRuntime.availableProcessors()) { body =>
+            if (response.status == OK) {
+              val obj: Future[R] = Unmarshal(body).to[R]
+              obj.foreach(x => log.debug("Received {}.", x.getClass.getSimpleName))
+              obj.map(Right(_))
+            } else {
+              log.error("Non 200 response status: {}.", response.status.intValue())
+              Unmarshal(body).to[L]
+                .map(Left(_))
+            }
           }
-        }
-    }
-    case (Failure(t), _) => {
-      Source.single(Left(t.getMessage))
+      }
+      case (Failure(t), _) => {
+        log.error(t, "Request failed.")
+        Source.empty
+      }
     }
   }
-
-  val dispatchers = context.system.dispatchers
-  val blockingDispatcher = "blocking-dispatcher"
 
   // https://github.com/akka/akka-http/issues/63
   override def receive = {
@@ -103,10 +103,13 @@ class K8SClientActor(
       val merge = MergeHub.source[Either[String, Event]](perProducerBufferSize = 16).to(sink)
       val consumer = merge.run()
 
+      implicit val stringUnmarshaller: FromByteStringUnmarshaller[String] =
+        Unmarshaller.strict(_.utf8String)
+
       Source(apps)
         .map(app => (request(app), NotUsed))
         .via(poolFlow)
-        .flatMapMerge(16, responseValidationFlow[Event])
+        .flatMapMerge(16, responseValidationFlow[String, Event])
         .runWith(consumer)
     }
 
@@ -129,13 +132,16 @@ class K8SClientActor(
       val merge = MergeHub.source[Option[Status]](perProducerBufferSize = 16).to(sink)
       val consumer = merge.run()
 
+      implicit val unitUnmarshaller: FromByteStringUnmarshaller[Unit] =
+        Unmarshaller.strict(_.utf8String)
+
       Source(apps)
         .map(app => (request(app), NotUsed))
         .via(poolFlow)
-        .flatMapMerge(16, responseValidationFlow[ByteString])
+        .flatMapMerge(16, responseValidationFlow[Status, Unit])
         .map {
           _ match {
-            case Left(y) => Some(y.parseJson.convertTo[Status])
+            case Left(status) => Some(status)
             case _ => None
           }
         }
