@@ -75,22 +75,22 @@ class K8SClientActorSpec extends TestKit(ActorSystem("test", ConfigFactory.load(
     }
   }
 
-    ignore should "delete pods" in {
-      wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/namespaces/default/pods"))
-        .withHeader(Accept.name, equalTo(`application/json`.value))
-        .withHeader(Authorization.name, equalTo("Bearer test"))
-        .withQueryParam("labelSelector", equalTo("app=test"))
-        .withQueryParam("pretty", equalTo("false"))
-        .withQueryParam("includeUninitialized", equalTo("false"))
-        .willReturn(ok()))
+  it should "delete pods" in {
+    wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/namespaces/default/pods"))
+      .withHeader(Accept.name, equalTo(`application/json`.value))
+      .withHeader(Authorization.name, equalTo("Bearer test"))
+      .withQueryParam("labelSelector", equalTo("app=test"))
+      .withQueryParam("pretty", equalTo("false"))
+      .withQueryParam("includeUninitialized", equalTo("false"))
+      .willReturn(ok("\n")))
 
-      val testProbe = TestProbe()
-      createClientActor() ! DeletePodsRequest(List("test"), testProbe.ref)
+    val testProbe = TestProbe()
+    createClientActor() ! DeletePodsRequest(List("test"), testProbe.ref)
 
-      val timeout = 5.seconds
+    val timeout = 5.seconds
 
-      testProbe.receiveOne(timeout) match {
-        case DeletePodsResponse(result) => result shouldBe None
-      }
+    testProbe.receiveOne(timeout) match {
+      case DeletePodsResponse(result) => result shouldBe None
     }
+  }
 }

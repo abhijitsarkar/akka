@@ -19,6 +19,7 @@ import org.abhijitsarkar.akka.k8s.watcher.{ActorModule, K8SProperties}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -56,7 +57,7 @@ class K8SClientActor(
   private lazy val poolFlow: Flow[RequestPair, ResponsePair, _] = Http().superPool[NotUsed](settings = newSettings)
 
   private def responseValidationFlow[L, R](responsePair: ResponsePair)(
-    implicit ev1: FromByteStringUnmarshaller[L], ev2: FromByteStringUnmarshaller[R]
+    implicit ev1: FromByteStringUnmarshaller[L], ev2: FromByteStringUnmarshaller[R], rTag: ClassTag[R]
   ): Source[Either[L, R], Any] = {
     responsePair match {
       case (Success(response), _) => {
@@ -65,7 +66,7 @@ class K8SClientActor(
           .mapAsyncUnordered(Runtime.getRuntime.availableProcessors()) { body =>
             if (response.status == OK) {
               val obj: Future[R] = Unmarshal(body).to[R]
-              obj.foreach(x => log.debug("Received {}.", x.getClass.getSimpleName))
+              obj.foreach(_ => log.debug("Received {}.", rTag.runtimeClass.getSimpleName))
               obj.map(Right(_))
             } else {
               log.error("Non 200 response status: {}.", response.status.intValue())

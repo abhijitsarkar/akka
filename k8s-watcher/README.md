@@ -1,7 +1,7 @@
 To run one test class
 
 ```
-sbt 'testOnly *.MongoRepositoryActorSpec'
+$ sbt 'testOnly *.MongoRepositoryActorSpec'
 ```
 
 **Mongo**
@@ -15,5 +15,7 @@ sbt 'testOnly *.MongoRepositoryActorSpec'
 **wget**
 
 ```
-kubectl exec -it <pod> -- wget -q -O- http://localhost:8080/apps/stats
+$ kubectl exec -it <pod> -- wget -q -O- http://localhost:8080/apps/stats
+
+$ kubectl exec -it <pod> -c k8s-watcher -- wget -q -O- http://localhost:8080/apps/stats
 ```

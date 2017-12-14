@@ -40,7 +40,7 @@ class WatcherServiceActor(
     }
     case GetEventsResponse(event) => {
       (event match {
-        case Right(e) => log.debug("Received event: {}.", e); Some(e).filter(_.`object`.ready)
+        case Right(e) => log.debug("{}.", e); Some(e).filter(_.`object`.ready)
         case Left(error) => log.error("Failed to retrieve events. Reason: {}.", error); None
       })
         .foreach(repositoryActor ! PersistEventRequest(_, self))

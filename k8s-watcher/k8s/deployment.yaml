@@ -32,6 +32,8 @@ spec:
           value: k8s-watcher-test
         - name: MONGO_EMBEDDED
           value: "false"
+        - name: K8S_DELETION_INTERVAL_MIN
+          value: "1"
         - name: K8S_NAMESPACE
           valueFrom:
             fieldRef:
